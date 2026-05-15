@@ -6,7 +6,7 @@ import '../models/user_profile.dart';
 class AIService {
   static const String _model = 'gemini-2.5-flash';
   // Replace with your actual Google AI Studio API key
-  static const String _apiKey = 'AIzaSyCjzC6U5h-_3jbL9PRNTwCLkpD9wEvwlt0';
+  static const String _apiKey = 'API_KEY';
 
   static String get _apiUrl =>
       'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent?key=$_apiKey';
