@@ -210,11 +210,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(height: 20),
 
                     // Survey chips
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
-                        _SurveyChip(label: widget.userProfile.behavior, icon: Icons.directions_run_rounded),
-                        const SizedBox(width: 8),
-                        _SurveyChip(label: widget.userProfile.weightGoal, icon: Icons.track_changes_rounded),
+                        _SurveyChip(label: widget.userProfile.activityLevel, icon: Icons.directions_run_rounded),
+                        _SurveyChip(label: widget.userProfile.sleepHours, icon: Icons.bedtime_rounded),
+                        ...widget.userProfile.primaryGoals.map(
+                          (g) => _SurveyChip(label: g, icon: Icons.track_changes_rounded)),
                       ],
                     ),
 

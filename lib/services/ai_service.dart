@@ -6,7 +6,7 @@ import '../models/user_profile.dart';
 class AIService {
   static const String _model = 'gemini-2.5-flash';
   // Replace with your actual Google AI Studio API key
-  static const String _apiKey = 'API_KEY';
+  static const String _apiKey = 'AIzaSyDjsuRDn-f0w0nNB0g4mRVeGOvcFE-KZn0';
 
   static String get _apiUrl =>
       'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent?key=$_apiKey';
@@ -65,36 +65,46 @@ class AIService {
   }
 
   static String _buildPrompt(UserProfile profile) {
+    final goals = profile.primaryGoals.join(', ');
+    final struggles = profile.struggles.isEmpty ? 'None specified' : profile.struggles.join(', ');
+    final diet = profile.dietaryPatterns.isEmpty ? 'No restrictions' : profile.dietaryPatterns.join(', ');
+
     return '''
-You are an expert health and wellness coach. A user has completed a short health survey.
+You are an expert health and wellness coach. A user has completed a detailed health survey.
 
 Survey answers:
-- Current activity level: ${profile.behavior}
-- Weight goal: ${profile.weightGoal}
-${profile.notes != null && profile.notes!.isNotEmpty ? '- Additional notes: ${profile.notes}' : ''}
+1. Primary goals (up to 2): $goals
+2. Biggest struggles: $struggles
+3. Meal planning frequency: ${profile.mealPlanningFrequency}
+4. Daily activity level: ${profile.activityLevel}
+5. Average nightly sleep: ${profile.sleepHours}
+6. Dietary patterns / restrictions: $diet
+${profile.notes != null && profile.notes!.isNotEmpty ? '7. Additional notes: ${profile.notes}' : ''}
 
 Generate exactly 3 detailed, personalized health recommendations — one each for nutrition, exercise, and sleep.
+Tailor every point specifically to this user's goals, struggles, activity level, sleep, and dietary restrictions.
 
 Requirements per category:
 
 NUTRITION:
-- State a specific daily calorie target (e.g. "Aim for ~2,000 kcal/day") based on their goal
-- Give a recommended macro split (protein / carbs / fats as percentages and grams)
-- List 3–4 specific foods to prioritize with brief reasons
-- List 1–2 foods or habits to avoid or limit
-- Mention meal timing or frequency if relevant
+- State a specific daily calorie target based on their goal and activity level (e.g. "Aim for ~1,800 kcal/day")
+- Give a recommended macro split (protein / carbs / fats as percentages and grams) that respects their dietary restrictions
+- List 3–4 specific foods to prioritize with brief reasons, respecting their dietary pattern
+- Address their meal planning frequency — if they rarely plan, suggest simple prep strategies; if they plan frequently, suggest optimisation tips
+- Mention 1–2 foods or habits to avoid or limit based on their struggles (e.g. if they have cravings, address that)
 
 EXERCISE:
-- Specify workout frequency (days/week) and session duration
-- Recommend exercise types suited to their activity level and goal (e.g. strength training, cardio, HIIT, yoga)
-- Give one concrete example weekly schedule or workout routine
+- Specify workout frequency (days/week) and session duration suited to their current activity level
+- Recommend exercise types matched to their goals and level (e.g. strength training, cardio, HIIT, yoga, walking)
+- Give one concrete example weekly schedule
+- Directly address any relevant struggles (e.g. if they lack time, suggest short efficient workouts; if low energy, suggest when to train)
 - Include a warm-up or recovery tip
 
 SLEEP:
-- State the recommended sleep duration (hours/night)
+- Compare their current sleep (${profile.sleepHours}) against the recommended amount and explain the gap if any
 - Suggest a specific bedtime and wake-up time window
-- List 3 actionable habits to improve sleep quality (e.g. no screens 1 hr before bed, magnesium glycinate 200mg, cool room at 18–20°C)
-- Explain how better sleep directly supports their specific goal
+- List 3–4 actionable habits to improve sleep quality (e.g. no screens 1 hr before bed, magnesium glycinate 200mg, cool room at 18–20°C)
+- Explain how better sleep directly helps with their specific goals and addresses any relevant struggles (e.g. emotional eating, low energy)
 
 Respond ONLY with a valid JSON array. No preamble, no markdown fences, no extra text whatsoever. Use this exact structure:
 

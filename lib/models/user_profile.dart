@@ -1,11 +1,19 @@
 class UserProfile {
-  final String behavior;
-  final String weightGoal;
+  final List<String> primaryGoals;       // Q1 — up to 2
+  final List<String> struggles;          // Q2 — multi-select
+  final String mealPlanningFrequency;    // Q3 — single
+  final String activityLevel;            // Q4 — single
+  final String sleepHours;               // Q5 — single
+  final List<String> dietaryPatterns;    // Q6 — multi-select
   final String? notes;
 
   const UserProfile({
-    required this.behavior,
-    required this.weightGoal,
+    required this.primaryGoals,
+    required this.struggles,
+    required this.mealPlanningFrequency,
+    required this.activityLevel,
+    required this.sleepHours,
+    required this.dietaryPatterns,
     this.notes,
   });
 }
@@ -13,8 +21,8 @@ class UserProfile {
 class AIRecommendation {
   final String category; // 'nutrition' | 'exercise' | 'sleep'
   final String title;
-  final String summary;       // 1-sentence overview shown collapsed
-  final List<String> bullets; // detailed bullet points shown when expanded
+  final String summary;
+  final List<String> bullets;
 
   const AIRecommendation({
     required this.category,
