@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../models/user_profile.dart';
 import '../services/ai_service.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 class DashboardScreen extends StatefulWidget {
   final UserProfile userProfile;
@@ -387,8 +388,13 @@ class _RecommendationCardState extends State<_RecommendationCard>
                         Text(widget.recommendation.title,
                             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E))),
                         const SizedBox(height: 4),
-                        Text(widget.recommendation.summary,
-                            style: TextStyle(fontSize: 13, color: Colors.grey[600], height: 1.4)),
+                        MarkdownBody(
+                          data: widget.recommendation.summary,
+                          styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                            p: TextStyle(fontSize: 13, color: Colors.grey[600], height: 1.4),
+                            strong: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -429,8 +435,13 @@ class _RecommendationCardState extends State<_RecommendationCard>
                             ),
                             const SizedBox(width: 10),
                             Expanded(
-                              child: Text(bullet,
-                                  style: TextStyle(fontSize: 13.5, color: Colors.grey[800], height: 1.5)),
+                              child: MarkdownBody(
+                                data: bullet,
+                                styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                                  p: TextStyle(fontSize: 13.5, color: Colors.grey[800], height: 1.5),
+                                ),
+                                selectable: false,
+                              ),
                             ),
                           ],
                         ),
