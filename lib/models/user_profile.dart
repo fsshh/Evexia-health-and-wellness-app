@@ -1,10 +1,10 @@
 class UserProfile {
-  final List<String> primaryGoals;       // Q1 — up to 2
-  final List<String> struggles;          // Q2 — multi-select
-  final String mealPlanningFrequency;    // Q3 — single
-  final String activityLevel;            // Q4 — single
-  final String sleepHours;               // Q5 — single
-  final List<String> dietaryPatterns;    // Q6 — multi-select
+  final List<String> primaryGoals;
+  final List<String> struggles;
+  final String mealPlanningFrequency;
+  final String activityLevel;
+  final String sleepHours;
+  final List<String> dietaryPatterns;
   final String? notes;
 
   const UserProfile({
@@ -18,16 +18,38 @@ class UserProfile {
   });
 }
 
+/// Three states for each day circle:
+/// neutral → done → missed → neutral → ...
+enum DayState { neutral, done, missed }
+
+class TodoItem {
+  final String task;
+  final String detail;
+  final List<DayState> days; // 7 entries, Mon–Sun
+
+  TodoItem({
+    required this.task,
+    required this.detail,
+    List<DayState>? days,
+  }) : days = days ?? List.filled(7, DayState.neutral);
+
+  TodoItem copyWithDay(int dayIndex, DayState state) {
+    final newDays = List<DayState>.from(days);
+    newDays[dayIndex] = state;
+    return TodoItem(task: task, detail: detail, days: newDays);
+  }
+}
+
 class AIRecommendation {
   final String category; // 'nutrition' | 'exercise' | 'sleep'
   final String title;
   final String summary;
-  final List<String> bullets;
+  final List<TodoItem> todos;
 
   const AIRecommendation({
     required this.category,
     required this.title,
     required this.summary,
-    required this.bullets,
+    required this.todos,
   });
 }
