@@ -26,29 +26,29 @@ class DefaultFirebaseOptions {
   // ── Replace with your Firebase project values ──────────
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey:            'YOUR_WEB_API_KEY',
-    appId:             'YOUR_WEB_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId:         'YOUR_PROJECT_ID',
-    authDomain:        'YOUR_PROJECT_ID.firebaseapp.com',
-    storageBucket:     'YOUR_PROJECT_ID.appspot.com',
+    apiKey:            'AIzaSyBwfmgyVp_mCtOmn_lu7sLzuWcoPKCLekQ',
+    appId:             '1:131387462669:web:cc5067c3bab6b1fc127144',
+    messagingSenderId: '131387462669',
+    projectId:         'evexia-91ecf',
+    authDomain:        'evexia-91ecf.firebaseapp.com',
+    storageBucket:     'evexia-91ecf.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey:            'YOUR_ANDROID_API_KEY',
-    appId:             'YOUR_ANDROID_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId:         'YOUR_PROJECT_ID',
-    storageBucket:     'YOUR_PROJECT_ID.appspot.com',
+    apiKey:            'AIzaSyBwfmgyVp_mCtOmn_lu7sLzuWcoPKCLekQ',
+    appId:             '1:131387462669:android:24ec22bd1126ed26127144',
+    messagingSenderId: '131387462669',
+    projectId:         'evexia-91ecf',
+    storageBucket:     'evexia-91ecf.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey:            'YOUR_IOS_API_KEY',
-    appId:             'YOUR_IOS_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId:         'YOUR_PROJECT_ID',
-    storageBucket:     'YOUR_PROJECT_ID.appspot.com',
-    iosClientId:       'YOUR_IOS_CLIENT_ID',
-    iosBundleId:       'com.example.evexiaApp',
+    apiKey:            'AIzaSyCMXBELHtGKOPu6cTtcN0OWkFgpNoQlIhw',
+    appId:             '1:131387462669:ios:e2c74e7bae4ec628127144',
+    messagingSenderId: '131387462669',
+    projectId:         'evexia-91ecf',
+    storageBucket:     'evexia-91ecf.firebasestorage.app',
+    iosClientId:       '131387462669-54bi3221cmll3hrv93u7usj30kmj0kr6.apps.googleusercontent.com',
+    iosBundleId:       'com.example.evexiaWellbeingApp',
   );
 }
