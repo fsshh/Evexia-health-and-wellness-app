@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/user_profile.dart';
+import '../services/auth_service.dart';
+import '../services/database_service.dart';
 import 'dashboard_screen.dart';
 
 class GoalsScreen extends StatefulWidget {
@@ -234,7 +236,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
       _selectedActivity != null &&
       _selectedSleep != null;
 
-  void _onContinue() {
+  Future<void> _onContinue() async {
     final profile = UserProfile(
       primaryGoals: _selectedGoals.toList(),
       struggles: _selectedStruggles.toList(),
@@ -244,6 +246,12 @@ class _GoalsScreenState extends State<GoalsScreen> {
       dietaryPatterns: _selectedDiet.toList(),
       notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
     );
+    // Save survey to Firestore if user is signed in
+    final uid = AuthService.currentUid;
+    if (uid != null) {
+      await DatabaseService.saveSurvey(uid: uid, profile: profile);
+    }
+    if (!mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => DashboardScreen(userProfile: profile)),
@@ -395,7 +403,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                       width: double.infinity,
                       height: 54,
                       child: ElevatedButton(
-                        onPressed: _canContinue ? _onContinue : null,
+                        onPressed: _canContinue ? () => _onContinue() : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF1A1A2E),
                           disabledBackgroundColor: Colors.grey[300],
