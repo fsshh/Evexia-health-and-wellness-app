@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/database_service.dart';
+import 'onboarding_screen.dart';
+import 'dashboard_screen.dart';
 import '../widgets/auth_widgets.dart';
 import 'signup_screen.dart';
 
@@ -29,7 +32,44 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() { _loading = true; _error = null; });
     final err = await AuthService.signIn(email: email, password: password);
     if (!mounted) return;
-    setState(() { _loading = false; _error = err; });
+
+    if (err != null) {
+      setState(() { _loading = false; _error = err; });
+      return;
+    }
+
+    // Load saved user data and navigate to dashboard
+    setState(() => _loading = false);
+    final uid = AuthService.currentUid!;
+    final profile = await DatabaseService.loadSurvey(uid);
+    if (!mounted) return;
+
+    if (profile == null) {
+      // No survey yet — go to onboarding
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+        (route) => false,
+      );
+    } else {
+      // Has survey — load EXP + week data then go to dashboard
+      final userProfile = await DatabaseService.getUserProfile(uid);
+      final totalExp   = (userProfile?['totalExp']   as int?) ?? 0;
+      final weekNumber = (userProfile?['weekNumber'] as int?) ?? 1;
+      final weekData   = await DatabaseService.loadWeekData(
+          uid: uid, weekNumber: weekNumber);
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => DashboardScreen(
+            userProfile: profile,
+            savedTotalExp: totalExp,
+            savedWeekNumber: weekNumber,
+            savedRecommendations: weekData,
+          ),
+        ),
+        (route) => false,
+      );
+    }
   }
 
   @override

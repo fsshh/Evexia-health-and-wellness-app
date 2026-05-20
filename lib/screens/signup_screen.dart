@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../widgets/auth_widgets.dart';
+import 'onboarding_screen.dart';
 
 
 class SignupScreen extends StatefulWidget {
@@ -51,10 +52,21 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
+    if (!mounted) return;
+
     final uid = AuthService.currentUid!;
     await DatabaseService.createUserProfile(
         uid: uid, email: email, displayName: name);
-    // AuthGate StreamBuilder handles navigation automatically
+
+    if (!mounted) return;
+    setState(() => _loading = false);
+
+    // Replace entire navigation stack with onboarding
+    // so back button cannot return to signup
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+      (route) => false,
+    );
   }
 
   @override

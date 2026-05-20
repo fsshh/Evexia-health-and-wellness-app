@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import '../models/user_profile.dart';
 import '../services/ai_service.dart';
 import '../services/auth_service.dart';
+import 'welcome_screen.dart';
 import '../services/database_service.dart';
 
 const _dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -145,13 +146,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     } else {
       _fetchRecommendations();
     }
-  }
-
-  @override
-  void dispose() {
-    _levelUpCtrl.dispose();
-    _expBurstCtrl.dispose();
-    super.dispose();
   }
 
   @override
@@ -372,7 +366,12 @@ class _DashboardScreenState extends State<DashboardScreen>
               onTap: () async {
                 Navigator.pop(context);
                 await AuthService.signOut();
-                // AuthGate StreamBuilder handles navigation back to WelcomeScreen
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+                    (route) => false,
+                  );
+                }
               },
             ),
           ],
@@ -408,10 +407,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                       const Text('Evexia',
                           style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800,
                               color: Color(0xFF1A1A2E), letterSpacing: 0.5)),
-                      Container(
-                        width: 38, height: 38,
-                        decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.grey[200]),
-                        child: const Icon(Icons.person_outline, color: Color(0xFF1A1A2E), size: 20),
+                      GestureDetector(
+                        onTap: () => _showProfileMenu(context),
+                        child: Container(
+                          width: 38, height: 38,
+                          decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.grey[200]),
+                          child: const Icon(Icons.person_outline, color: Color(0xFF1A1A2E), size: 20),
+                        ),
                       ),
                     ],
                   ),
