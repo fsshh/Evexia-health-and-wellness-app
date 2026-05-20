@@ -154,6 +154,13 @@ class _DashboardScreenState extends State<DashboardScreen>
     super.dispose();
   }
 
+  @override
+  void dispose() {
+    _levelUpCtrl.dispose();
+    _expBurstCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _fetchRecommendations() async {
     setState(() { _isLoading = true; _error = null; _loadingStatus = 'Generating your plan...'; });
     try {
