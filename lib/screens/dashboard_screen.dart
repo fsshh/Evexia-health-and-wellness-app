@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:math' as math;
 import '../models/user_profile.dart';
 import '../services/ai_service.dart';
 import '../services/auth_service.dart';
@@ -31,14 +30,18 @@ int _expForLevel(int level) => level * 500;
 // Total EXP needed to reach a given level from 0
 int _totalExpForLevel(int level) {
   int total = 0;
-  for (int i = 1; i < level; i++) total += _expForLevel(i);
+  for (int i = 1; i < level; i++) {
+    total += _expForLevel(i);
+  }
   return total;
 }
 
 // Derive current level from total accumulated EXP
 int _levelFromExp(int totalExp) {
   int level = 1;
-  while (totalExp >= _totalExpForLevel(level + 1)) level++;
+  while (totalExp >= _totalExpForLevel(level + 1)) {
+    level++;
+  }
   return level;
 }
 
@@ -466,7 +469,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF1A1A2E).withOpacity(0.08),
+                                  color: const Color(0xFF1A1A2E).withValues(alpha: 0.08),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Row(
@@ -475,12 +478,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                                     SizedBox(
                                       width: 10, height: 10,
                                       child: CircularProgressIndicator(
-                                          strokeWidth: 1.5, color: const Color(0xFF1A1A2E).withOpacity(0.6)),
+                                          strokeWidth: 1.5, color: const Color(0xFF1A1A2E).withValues(alpha: 0.6)),
                                     ),
                                     const SizedBox(width: 6),
                                     Text(_loadingStatus,
                                         style: TextStyle(fontSize: 11,
-                                            color: const Color(0xFF1A1A2E).withOpacity(0.6), fontWeight: FontWeight.w500)),
+                                            color: const Color(0xFF1A1A2E).withValues(alpha: 0.6), fontWeight: FontWeight.w500)),
                                   ],
                                 ),
                               ),
@@ -488,7 +491,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF4CAF50).withOpacity(0.1),
+                                  color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: const Row(
@@ -532,7 +535,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, -3))],
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, -3))],
                   ),
                   child: SafeArea(
                     top: false,
@@ -561,7 +564,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             child: GestureDetector(
               onTap: () => setState(() => _showLevelUp = false),
               child: Container(
-                color: Colors.black.withOpacity(0.55),
+                color: Colors.black.withValues(alpha: 0.55),
                 child: Center(
                   child: ScaleTransition(
                     scale: _levelUpAnim,
@@ -571,12 +574,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(28),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 40)],
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 40)],
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text('🎉', style: const TextStyle(fontSize: 56)),
+                          const Text('🎉', style: TextStyle(fontSize: 56)),
                           const SizedBox(height: 12),
                           const Text('LEVEL UP!',
                               style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900,
@@ -588,7 +591,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                             decoration: BoxDecoration(
-                              color: _rankColor(_levelUpTo).withOpacity(0.12),
+                              color: _rankColor(_levelUpTo).withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
@@ -649,12 +652,12 @@ class _ExpCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [const Color(0xFF1A1A2E), rankColor.withOpacity(0.85)],
+          colors: [const Color(0xFF1A1A2E), rankColor.withValues(alpha: 0.85)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(22),
-        boxShadow: [BoxShadow(color: rankColor.withOpacity(0.35), blurRadius: 20, offset: const Offset(0, 6))],
+        boxShadow: [BoxShadow(color: rankColor.withValues(alpha: 0.35), blurRadius: 20, offset: const Offset(0, 6))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -666,14 +669,14 @@ class _ExpCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.15),
+                  color: Colors.white.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Column(
                   children: [
                     Text('LVL',
                         style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
-                            color: Colors.white.withOpacity(0.7), letterSpacing: 1.5)),
+                            color: Colors.white.withValues(alpha: 0.7), letterSpacing: 1.5)),
                     Text('$level',
                         style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Colors.white, height: 1.1)),
                   ],
@@ -688,18 +691,18 @@ class _ExpCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: rankColor.withOpacity(0.25),
+                        color: rankColor.withValues(alpha: 0.25),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: rankColor.withOpacity(0.5), width: 1),
+                        border: Border.all(color: rankColor.withValues(alpha: 0.5), width: 1),
                       ),
                       child: Text('⭐ $rank',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
                     ),
                     const SizedBox(height: 6),
                     Text('$totalExp total EXP',
-                        style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.8), fontWeight: FontWeight.w500)),
+                        style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.8), fontWeight: FontWeight.w500)),
                     Text('Week $weekNumber',
-                        style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.5))),
+                        style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
                   ],
                 ),
               ),
@@ -715,7 +718,7 @@ class _ExpCard extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text('+$lastGained EXP',
@@ -734,10 +737,10 @@ class _ExpCard extends StatelessWidget {
           Row(
             children: [
               Text('$expInLevel',
-                  style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.7), fontWeight: FontWeight.w600)),
+                  style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7), fontWeight: FontWeight.w600)),
               const Spacer(),
               Text('${_expNeededForCurrentLevel(totalExp)} EXP to next level',
-                  style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.6))),
+                  style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.6))),
             ],
           ),
           const SizedBox(height: 6),
@@ -746,7 +749,7 @@ class _ExpCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: expProgress,
               minHeight: 10,
-              backgroundColor: Colors.white.withOpacity(0.15),
+              backgroundColor: Colors.white.withValues(alpha: 0.15),
               valueColor: AlwaysStoppedAnimation<Color>(rankColor == const Color(0xFFCD7F32)
                   ? Colors.amber.shade300
                   : Colors.white),
@@ -761,7 +764,7 @@ class _ExpCard extends StatelessWidget {
                 Icon(Icons.bolt_rounded, size: 14, color: Colors.amber.shade300),
                 const SizedBox(width: 4),
                 Text('This week: +$previewExp EXP pending — press Reset Week to claim',
-                    style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.7))),
+                    style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
               ],
             ),
           ],
@@ -821,7 +824,7 @@ class _ResetWeekButton extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4CAF50).withOpacity(0.1),
+                  color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Row(
@@ -941,7 +944,7 @@ class _RecommendationSectionState extends State<_RecommendationSection> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 14, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 14, offset: const Offset(0, 4))],
       ),
       child: Column(
         children: [
@@ -1089,7 +1092,7 @@ class _TodoRow extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: doneThisWeek > 0 ? accentColor.withOpacity(0.1) : Colors.grey[100],
+                        color: doneThisWeek > 0 ? accentColor.withValues(alpha: 0.1) : Colors.grey[100],
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text('✓ $doneThisWeek',
@@ -1199,7 +1202,7 @@ class _SkeletonCardState extends State<_SkeletonCard> with SingleTickerProviderS
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 14, offset: const Offset(0, 4))],
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 14, offset: const Offset(0, 4))],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1247,7 +1250,7 @@ class _SurveyChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E).withOpacity(0.07),
+        color: const Color(0xFF1A1A2E).withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
