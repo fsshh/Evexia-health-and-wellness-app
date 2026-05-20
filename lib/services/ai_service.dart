@@ -5,7 +5,7 @@ import '../models/user_profile.dart';
 
 class AIService {
   static const String _model = 'gemini-2.5-flash';
-  static const String _apiKey = 'API_KEY_HERE';
+  static const String _apiKey = 'YOUR_API_KEY_HERE';
   static const int _maxRetries = 4;
   static const List<int> _retryDelaysSeconds = [5, 10, 20];
 

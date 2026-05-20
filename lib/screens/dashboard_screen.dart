@@ -2,16 +2,56 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../models/user_profile.dart';
 import '../services/ai_service.dart';
+import '../services/auth_service.dart';
+import '../services/database_service.dart';
 
 const _dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 // ─── EXP / Level system ───────────────────────────────────
-// Each completed day = +20 EXP, each missed day = -5 EXP
-// Neutral days = 0 EXP
-// Level thresholds: every 100 EXP = 1 level
-const int _expPerDone   =  20;
-const int _expPerMissed = -5;
-const int _expPerLevel  =  100;
+// EXP rates (per day circle):
+//   Done    = +3 EXP
+//   Missed  = -1 EXP
+//   Neutral =  0 EXP
+//
+// Perfect week: 3 categories x 4 tasks x 7 days = 84 done = +252 EXP
+//
+// Level thresholds scale up each level (gets harder):
+//   Level 1 → 2 :   500 EXP  (~2 perfect weeks)
+//   Level 2 → 3 : 1,000 EXP  (~4 perfect weeks)
+//   Level N → N+1: N * 500 EXP
+//
+// So reaching Level 5 requires 500+1000+1500+2000 = 5,000 EXP (~20 perfect weeks)
+const int _expPerDone   =  3;
+const int _expPerMissed = -1;
+
+// EXP required to go from level N to N+1
+int _expForLevel(int level) => level * 500;
+
+// Total EXP needed to reach a given level from 0
+int _totalExpForLevel(int level) {
+  int total = 0;
+  for (int i = 1; i < level; i++) total += _expForLevel(i);
+  return total;
+}
+
+// Derive current level from total accumulated EXP
+int _levelFromExp(int totalExp) {
+  int level = 1;
+  while (totalExp >= _totalExpForLevel(level + 1)) level++;
+  return level;
+}
+
+// EXP accumulated within the current level
+int _expIntoLevel(int totalExp) {
+  final level = _levelFromExp(totalExp);
+  return totalExp - _totalExpForLevel(level);
+}
+
+// EXP required to complete the current level
+int _expNeededForCurrentLevel(int totalExp) {
+  final level = _levelFromExp(totalExp);
+  return _expForLevel(level);
+}
 
 int _computeWeeklyExp(List<AIRecommendation> recs) {
   int exp = 0;
@@ -25,9 +65,6 @@ int _computeWeeklyExp(List<AIRecommendation> recs) {
   }
   return exp.clamp(0, 99999);
 }
-
-int _levelFromExp(int totalExp) => (totalExp ~/ _expPerLevel) + 1;
-int _expIntoLevel(int totalExp)  => totalExp % _expPerLevel;
 
 String _rankLabel(int level) {
   if (level >= 20) return 'Legendary';
@@ -50,7 +87,17 @@ Color _rankColor(int level) {
 // ─────────────────────────────────────────────────────────
 class DashboardScreen extends StatefulWidget {
   final UserProfile userProfile;
-  const DashboardScreen({super.key, required this.userProfile});
+  final int savedTotalExp;
+  final int savedWeekNumber;
+  final List<AIRecommendation>? savedRecommendations;
+
+  const DashboardScreen({
+    super.key,
+    required this.userProfile,
+    this.savedTotalExp = 0,
+    this.savedWeekNumber = 1,
+    this.savedRecommendations,
+  });
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -65,8 +112,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   String _loadingStatus = 'Generating your plan...';
 
   // EXP state — persists across weekly resets
-  int _totalExp = 0;
-  int _weekNumber = 1;
+  late int _totalExp;
+  late int _weekNumber;
 
   // Level-up animation
   late AnimationController _levelUpCtrl;
@@ -88,7 +135,23 @@ class _DashboardScreenState extends State<DashboardScreen>
     _expBurstCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
     _expBurstAnim = CurvedAnimation(parent: _expBurstCtrl, curve: Curves.easeOut);
 
-    _fetchRecommendations();
+    _totalExp    = widget.savedTotalExp;
+    _weekNumber  = widget.savedWeekNumber;
+
+    if (widget.savedRecommendations != null) {
+      // Returning user — restore saved week data, skip AI call
+      _recommendations = widget.savedRecommendations;
+      _isLoading = false;
+    } else {
+      _fetchRecommendations();
+    }
+  }
+
+  @override
+  void dispose() {
+    _levelUpCtrl.dispose();
+    _expBurstCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -146,6 +209,18 @@ class _DashboardScreenState extends State<DashboardScreen>
         todos: newTodos,
       );
     });
+    _autoSaveWeek();
+  }
+
+  Future<void> _autoSaveWeek() async {
+    final uid = AuthService.currentUid;
+    if (uid == null || _recommendations == null) return;
+    await DatabaseService.saveWeekData(
+      uid: uid,
+      weekNumber: _weekNumber,
+      recommendations: _recommendations!,
+      expEarned: _computeWeeklyExp(_recommendations!),
+    );
   }
 
   void _resetWeek() {
@@ -171,6 +246,18 @@ class _DashboardScreenState extends State<DashboardScreen>
         );
       }).toList();
     });
+
+    // Persist to Firestore
+    final uid = AuthService.currentUid;
+    if (uid != null) {
+      DatabaseService.updateExpAndWeek(uid: uid, totalExp: _totalExp, weekNumber: _weekNumber);
+      DatabaseService.saveWeekData(
+        uid: uid,
+        weekNumber: _weekNumber,
+        recommendations: _recommendations!,
+        expEarned: 0, // fresh week
+      );
+    }
 
     // Burst animation for EXP gained
     _expBurstCtrl.forward(from: 0);
@@ -247,11 +334,58 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
+  void _showProfileMenu(BuildContext context) {
+    final user = AuthService.currentUser;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 40, height: 4,
+                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 20),
+            CircleAvatar(radius: 28, backgroundColor: const Color(0xFF1A1A2E),
+                child: Text(
+                  (user?.displayName ?? 'U')[0].toUpperCase(),
+                  style: const TextStyle(fontSize: 22, color: Colors.white, fontWeight: FontWeight.w700),
+                )),
+            const SizedBox(height: 12),
+            Text(user?.displayName ?? 'User',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E))),
+            Text(user?.email ?? '',
+                style: TextStyle(fontSize: 13, color: Colors.grey[500])),
+            const SizedBox(height: 24),
+            Divider(color: Colors.grey[100]),
+            const SizedBox(height: 12),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Container(width: 40, height: 40,
+                  decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(10)),
+                  child: Icon(Icons.logout_rounded, color: Colors.red.shade400, size: 20)),
+              title: Text('Sign Out',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.red.shade400)),
+              onTap: () async {
+                Navigator.pop(context);
+                await AuthService.signOut();
+                // AuthGate StreamBuilder handles navigation back to WelcomeScreen
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentLevel = _levelFromExp(_totalExp);
     final expInLevel   = _expIntoLevel(_totalExp);
-    final expProgress  = expInLevel / _expPerLevel;
+    final expProgress  = expInLevel / _expNeededForCurrentLevel(_totalExp);
     final rank         = _rankLabel(currentLevel);
     final rankColor    = _rankColor(currentLevel);
 
@@ -600,7 +734,7 @@ class _ExpCard extends StatelessWidget {
               Text('$expInLevel',
                   style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.7), fontWeight: FontWeight.w600)),
               const Spacer(),
-              Text('$_expPerLevel EXP to next level',
+              Text('${_expNeededForCurrentLevel(totalExp)} EXP to next level',
                   style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.6))),
             ],
           ),
