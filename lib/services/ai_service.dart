@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/user_profile.dart';
+import 'package:flutter/material.dart';
 
 class AIService {
   static const String _model = 'gemini-2.5-flash';
@@ -35,7 +36,7 @@ class AIService {
         if (response.statusCode == 429 || response.statusCode == 503) {
           if (attempt < _maxRetries - 1) {
             final delay = _retryDelaysSeconds[attempt.clamp(0, _retryDelaysSeconds.length - 1)];
-            print('Gemini busy (${response.statusCode}), retrying in ${delay}s... (attempt ${attempt + 1}/$_maxRetries)');
+            debugPrint('Gemini busy (${response.statusCode}), retrying in ${delay}s... (attempt ${attempt + 1}/$_maxRetries)');
             await Future.delayed(Duration(seconds: delay));
             attempt++;
             continue;
@@ -44,13 +45,13 @@ class AIService {
         }
 
         if (response.statusCode != 200) {
-          print('Gemini error: ${response.statusCode} — ${response.body}');
+          debugPrint('Gemini error: ${response.statusCode} — ${response.body}');
           throw Exception('API error ${response.statusCode}: ${response.body}');
         }
 
         final data = jsonDecode(response.body);
         final rawText = data['candidates'][0]['content']['parts'][0]['text'] as String;
-        print('Raw Gemini response: $rawText');
+        debugPrint('Raw Gemini response: $rawText');
         return _parseRecommendations(rawText);
 
       } on Exception {
