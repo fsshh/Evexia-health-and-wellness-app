@@ -2,10 +2,20 @@ import 'package:flutter/material.dart';
 import '../models/user_profile.dart';
 import '../services/ai_service.dart';
 import '../services/auth_service.dart';
+import 'friends_screen.dart';
+import 'leaderboard_screen.dart';
+import 'profile_screen.dart';
 import 'welcome_screen.dart';
 import '../services/database_service.dart';
 
 const _dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+/// Returns today's index in the week (0 = Monday … 6 = Sunday)
+/// matching our _dayLabels order.
+int _todayIndex() {
+  // DateTime.weekday: 1=Mon … 7=Sun  →  subtract 1 for 0-based
+  return DateTime.now().weekday - 1;
+}
 
 // ─── EXP / Level system ───────────────────────────────────
 // EXP rates (per day circle):
@@ -326,6 +336,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           iconColor: config['iconColor'] as Color,
           accentColor: config['accentColor'] as Color,
           onToggleDay: _toggleDay,
+          todayIndex: _todayIndex(),
         );
       }),
     );
@@ -392,13 +403,47 @@ class _DashboardScreenState extends State<DashboardScreen>
     final rankColor    = _rankColor(currentLevel);
 
     // Live preview of what this week will earn (before reset)
-    final previewExp = _recommendations != null ? _computeWeeklyExp(_recommendations!) : 0;
+    final previewExp  = _recommendations != null ? _computeWeeklyExp(_recommendations!) : 0;
+    final todayIndex  = _todayIndex();
+
+    // Shared bottom nav bar widget
+    Widget bottomNav = Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06),
+            blurRadius: 12, offset: const Offset(0, -3))],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _NavItem(icon: Icons.home_rounded, label: 'Home',
+                  selected: _selectedIndex == 0, onTap: () => setState(() => _selectedIndex = 0)),
+              _NavItem(icon: Icons.people_rounded, label: 'Friends',
+                  selected: _selectedIndex == 1, onTap: () => setState(() => _selectedIndex = 1)),
+              _NavItem(icon: Icons.leaderboard_rounded, label: 'Ranking',
+                  selected: _selectedIndex == 2, onTap: () => setState(() => _selectedIndex = 2)),
+              _NavItem(icon: Icons.person_rounded, label: 'Profile',
+                  selected: _selectedIndex == 3, onTap: () => setState(() => _selectedIndex = 3)),
+            ],
+          ),
+        ),
+      ),
+    );
 
     return Stack(
       children: [
         Scaffold(
           backgroundColor: const Color(0xFFF7F8FA),
-          body: SafeArea(
+          bottomNavigationBar: bottomNav,
+          body: IndexedStack(
+            index: _selectedIndex,
+            children: [
+              // ── Tab 0: Home ───────────────────────────
+              SafeArea(
             child: Column(
               children: [
                 // ── Header ──────────────────────────────
@@ -521,6 +566,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           _ResetWeekButton(
                             previewExp: previewExp,
                             weekNumber: _weekNumber,
+                            todayIndex: _todayIndex(),
                             onReset: _resetWeek,
                           ),
                         ],
@@ -531,30 +577,22 @@ class _DashboardScreenState extends State<DashboardScreen>
                   ),
                 ),
 
-                // ── Bottom Nav ───────────────────────────
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, -3))],
-                  ),
-                  child: SafeArea(
-                    top: false,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _NavItem(icon: Icons.home_rounded, label: 'Home', selected: _selectedIndex == 0, onTap: () => setState(() => _selectedIndex = 0)),
-                          _NavItem(icon: Icons.bar_chart_rounded, label: 'Goals', selected: _selectedIndex == 1, onTap: () => setState(() => _selectedIndex = 1)),
-                          _NavItem(icon: Icons.grid_view_rounded, label: 'BMI', selected: _selectedIndex == 2, onTap: () => setState(() => _selectedIndex = 2)),
-                          _NavItem(icon: Icons.person_rounded, label: 'Profile', selected: _selectedIndex == 3, onTap: () => setState(() => _selectedIndex = 3)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
               ],
             ),
+          ), // closes home SafeArea
+
+              // ── Tab 1: Friends ────────────────────────
+              const FriendsScreen(),
+
+              // ── Tab 2: Leaderboard ────────────────────
+              const LeaderboardScreen(),
+
+              // ── Tab 3: Profile ────────────────────────
+              ProfileScreen(
+                totalExp:   _totalExp,
+                weekNumber: _weekNumber,
+              ),
+            ],
           ),
         ),
 
@@ -763,8 +801,8 @@ class _ExpCard extends StatelessWidget {
               children: [
                 Icon(Icons.bolt_rounded, size: 14, color: Colors.amber.shade300),
                 const SizedBox(width: 4),
-                Text('This week: +$previewExp EXP pending — press Reset Week to claim',
-                    style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
+                Text('This week: +$previewExp EXP pending — available to claim on Sunday',
+                    style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.7))),
               ],
             ),
           ],
@@ -781,11 +819,13 @@ class _ResetWeekButton extends StatelessWidget {
   final int previewExp;
   final int weekNumber;
   final VoidCallback onReset;
+  final int todayIndex;
 
   const _ResetWeekButton({
     required this.previewExp,
     required this.weekNumber,
     required this.onReset,
+    required this.todayIndex,
   });
 
   void _confirmReset(BuildContext context) {
@@ -912,6 +952,7 @@ class _RecommendationSection extends StatefulWidget {
   final Color iconColor;
   final Color accentColor;
   final void Function(int recIndex, int todoIndex, int dayIndex, DayState current) onToggleDay;
+  final int todayIndex;
 
   const _RecommendationSection({
     required this.rec,
@@ -921,6 +962,7 @@ class _RecommendationSection extends StatefulWidget {
     required this.iconColor,
     required this.accentColor,
     required this.onToggleDay,
+    required this.todayIndex,
   });
 
   @override
@@ -1017,11 +1059,21 @@ class _RecommendationSectionState extends State<_RecommendationSection> {
                   child: Row(
                     children: [
                       const Expanded(child: SizedBox()),
-                      ...List.generate(7, (i) => SizedBox(
-                        width: 30,
-                        child: Center(child: Text(_dayLabels[i],
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey[400]))),
-                      )),
+                      ...List.generate(7, (i) {
+                        final isToday = i == widget.todayIndex;
+                        return SizedBox(
+                          width: 30,
+                          child: Center(
+                            child: Text(_dayLabels[i],
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: isToday ? FontWeight.w900 : FontWeight.w700,
+                                color: isToday ? widget.accentColor : Colors.grey[400],
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
                     ],
                   ),
                 ),
@@ -1031,6 +1083,7 @@ class _RecommendationSectionState extends State<_RecommendationSection> {
                     todo: todo,
                     accentColor: widget.accentColor,
                     isLast: todoIndex == widget.rec.todos.length - 1,
+                    todayIndex: widget.todayIndex,
                     onToggleDay: (dayIndex, current) =>
                         widget.onToggleDay(widget.recIndex, todoIndex, dayIndex, current),
                   );
@@ -1053,12 +1106,14 @@ class _TodoRow extends StatelessWidget {
   final TodoItem todo;
   final Color accentColor;
   final bool isLast;
+  final int todayIndex;
   final void Function(int dayIndex, DayState current) onToggleDay;
 
   const _TodoRow({
     required this.todo,
     required this.accentColor,
     required this.isLast,
+    required this.todayIndex,
     required this.onToggleDay,
   });
 
@@ -1120,24 +1175,84 @@ class _TodoRow extends StatelessWidget {
           const SizedBox(width: 8),
           Row(
             children: List.generate(7, (dayIndex) {
-              final state = todo.days[dayIndex];
+              final state      = todo.days[dayIndex];
+              final isToday    = dayIndex == todayIndex;
+              final isPast     = dayIndex < todayIndex;
+              final isFuture   = dayIndex > todayIndex;
+
+              // Future days — always locked, no interaction
+              if (isFuture) {
+                return Tooltip(
+                  message: 'Not yet',
+                  child: Container(
+                    width: 28, height: 28,
+                    margin: const EdgeInsets.symmetric(horizontal: 1),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.grey.shade50,
+                      border: Border.all(color: Colors.grey.shade200, width: 1.5),
+                    ),
+                    child: Icon(Icons.lock_outline_rounded, size: 11, color: Colors.grey.shade300),
+                  ),
+                );
+              }
+
+              // Past days — locked but show whatever state was recorded
+              if (isPast) {
+                final Color bgColor;
+                final Color borderColor;
+                final Widget child;
+
+                switch (state) {
+                  case DayState.done:
+                    bgColor     = accentColor.withOpacity(0.7);
+                    borderColor = accentColor.withOpacity(0.7);
+                    child       = const Icon(Icons.check_rounded, size: 13, color: Colors.white);
+                  case DayState.missed:
+                    bgColor     = Colors.red.shade300;
+                    borderColor = Colors.red.shade300;
+                    child       = const Icon(Icons.close_rounded, size: 13, color: Colors.white);
+                  case DayState.neutral:
+                    // Was not marked — show a muted lock
+                    bgColor     = Colors.grey.shade100;
+                    borderColor = Colors.grey.shade300;
+                    child       = Icon(Icons.lock_rounded, size: 11, color: Colors.grey.shade400);
+                }
+
+                return Tooltip(
+                  message: 'Day passed',
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    width: 28, height: 28,
+                    margin: const EdgeInsets.symmetric(horizontal: 1),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: bgColor,
+                      border: Border.all(color: borderColor, width: 1.5),
+                    ),
+                    child: Center(child: child),
+                  ),
+                );
+              }
+
+              // Today — fully interactive
               final Color bgColor;
               final Color borderColor;
               final Widget? icon;
 
               switch (state) {
                 case DayState.done:
-                  bgColor = accentColor;
+                  bgColor     = accentColor;
                   borderColor = accentColor;
-                  icon = const Icon(Icons.check_rounded, size: 13, color: Colors.white);
+                  icon        = const Icon(Icons.check_rounded, size: 13, color: Colors.white);
                 case DayState.missed:
-                  bgColor = Colors.red.shade400;
+                  bgColor     = Colors.red.shade400;
                   borderColor = Colors.red.shade400;
-                  icon = const Icon(Icons.close_rounded, size: 13, color: Colors.white);
+                  icon        = const Icon(Icons.close_rounded, size: 13, color: Colors.white);
                 case DayState.neutral:
-                  bgColor = Colors.grey.shade100;
-                  borderColor = Colors.grey.shade300;
-                  icon = null;
+                  bgColor     = Colors.white;
+                  borderColor = accentColor;
+                  icon        = null;
               }
 
               return GestureDetector(
@@ -1149,7 +1264,10 @@ class _TodoRow extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: bgColor,
-                    border: Border.all(color: borderColor, width: 1.5),
+                    border: Border.all(color: borderColor, width: isToday ? 2 : 1.5),
+                    boxShadow: isToday ? [
+                      BoxShadow(color: accentColor.withOpacity(0.35), blurRadius: 6, spreadRadius: 1),
+                    ] : null,
                   ),
                   child: Center(child: icon),
                 ),

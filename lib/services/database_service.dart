@@ -48,7 +48,7 @@ class DatabaseService {
   }) async {
     await _db.collection('users').doc(uid).set({
       'displayName': displayName,
-      'email':       email,
+      'email':       email.toLowerCase(),
       'createdAt':   FieldValue.serverTimestamp(),
       'totalExp':    0,
       'weekNumber':  1,
