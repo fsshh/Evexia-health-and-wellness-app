@@ -7,11 +7,14 @@ import 'welcome_screen.dart';
 class ProfileScreen extends StatefulWidget {
   final int totalExp;
   final int weekNumber;
+  // DEV ONLY — null in production builds
+  final Future<void> Function()? onDevResetWeek;
 
   const ProfileScreen({
     super.key,
     required this.totalExp,
     required this.weekNumber,
+    this.onDevResetWeek,
   });
 
   @override
@@ -23,6 +26,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _loadingFriends = true;
   Map<String, dynamic>? _userProfile;
   bool _loadingProfile = true;
+
+  // DEV: hidden 5-tap trigger on the version footer
+  int _devTapCount = 0;
 
   @override
   void initState() {
@@ -100,11 +106,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF0F0F1A) : const Color(0xFFF7F8FA);
     final user = AuthService.currentUser;
     final name = user?.displayName ?? 'User';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FA),
+      backgroundColor: bgColor,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
@@ -273,10 +281,133 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
 
               const SizedBox(height: 32),
+
+              // ── Hidden dev footer (5-tap to unlock) ──────
+              if (widget.onDevResetWeek != null)
+                GestureDetector(
+                  onTap: () {
+                    _devTapCount++;
+                    if (_devTapCount >= 5) {
+                      _devTapCount = 0;
+                      _showDevSheet();
+                    }
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 28),
+                    child: Text(
+                      'v1.0.0',
+                      style: TextStyle(fontSize: 11, color: Colors.grey[300]),
+                    ),
+                  ),
+                )
+              else
+                const SizedBox(height: 28),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  void _showDevSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        bool _resetting = false;
+        return StatefulBuilder(
+          builder: (ctx, setLocal) => Container(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A2E),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40, height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.amber.withOpacity(0.4)),
+                      ),
+                      child: const Text('DEV',
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.amber,
+                              letterSpacing: 1)),
+                    ),
+                    const SizedBox(width: 10),
+                    const Text('Developer Tools',
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text('Testing utilities — not visible in production.',
+                    style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.4))),
+                const SizedBox(height: 20),
+                Divider(color: Colors.white.withOpacity(0.08)),
+                const SizedBox(height: 16),
+                // ── Reset Week ───────────────────────────────
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(
+                    width: 44, height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.restart_alt_rounded,
+                        color: Colors.orange, size: 22),
+                  ),
+                  title: const Text('Reset Current Week',
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white)),
+                  subtitle: Text('Runs the full week-end flow now',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white.withOpacity(0.45))),
+                  trailing: _resetting
+                      ? const SizedBox(
+                          width: 20, height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.orange))
+                      : const Icon(Icons.chevron_right_rounded,
+                          color: Colors.white38),
+                  onTap: _resetting
+                      ? null
+                      : () async {
+                          setLocal(() => _resetting = true);
+                          Navigator.pop(ctx);
+                          await widget.onDevResetWeek!();
+                        },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -303,11 +434,15 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark    = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+    final txtColor  = isDark ? Colors.white : const Color(0xFF1A1A2E);
+
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cardColor,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
         ),
@@ -320,7 +455,7 @@ class _StatCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(value,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF1A1A2E))),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: txtColor)),
             const SizedBox(height: 2),
             Text(label,
                 textAlign: TextAlign.center,
@@ -341,18 +476,23 @@ class _Section extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark     = Theme.of(context).brightness == Brightness.dark;
+    final cardColor  = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+    final titleColor = isDark ? Colors.white70 : const Color(0xFF1A1A2E);
+    final divColor   = isDark ? Colors.white12 : Colors.grey[100]!;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A1A2E), letterSpacing: 0.5)),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                  color: titleColor, letterSpacing: 0.5)),
           const SizedBox(height: 8),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: cardColor,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
             ),
@@ -362,7 +502,7 @@ class _Section extends StatelessWidget {
                   children: [
                     children[i],
                     if (i < children.length - 1)
-                      Divider(height: 1, indent: 56, color: Colors.grey[100]),
+                      Divider(height: 1, indent: 56, color: divColor),
                   ],
                 );
               }),
@@ -386,21 +526,26 @@ class _InfoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark   = Theme.of(context).brightness == Brightness.dark;
+    final txtColor = isDark ? Colors.white : const Color(0xFF1A1A2E);
+    final iconBg   = isDark
+        ? Colors.white.withOpacity(0.08)
+        : const Color(0xFF1A1A2E).withOpacity(0.06);
+    final iconColor = isDark ? Colors.white70 : const Color(0xFF1A1A2E);
+
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       leading: Container(
         width: 40, height: 40,
-        decoration: BoxDecoration(
-            color: const Color(0xFF1A1A2E).withOpacity(0.06),
-            borderRadius: BorderRadius.circular(10)),
-        child: Icon(icon, color: const Color(0xFF1A1A2E), size: 18),
+        decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(10)),
+        child: Icon(icon, color: iconColor, size: 18),
       ),
       title: Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[500], fontWeight: FontWeight.w500)),
       subtitle: Text(value,
           style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w700,
-              color: valueColor ?? const Color(0xFF1A1A2E))),
+              color: valueColor ?? txtColor)),
     );
   }
 }

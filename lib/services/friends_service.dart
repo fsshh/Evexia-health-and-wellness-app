@@ -6,6 +6,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 // users/{uid}/friends/{friendUid}
 //   addedAt: timestamp
 //
+// users/{uid}/friendRequests/{fromUid}
+//   fromUid:      string
+//   fromName:     string
+//   fromUsername: string
+//   sentAt:       timestamp
+//   status:       'pending' | 'accepted' | 'declined'
+//
 // users/{uid}
 //   displayName, username, email, totalExp, weekNumber
 // ─────────────────────────────────────────────────────────
@@ -14,9 +21,7 @@ class FriendsService {
   static final _db = FirebaseFirestore.instance;
 
   /// Search for a user by exact username (case-insensitive).
-  /// Returns their public profile or null if not found.
   static Future<Map<String, dynamic>?> searchUser(String username) async {
-    // Look up uid via the username index
     final usernameDoc = await _db
         .collection('usernames')
         .doc(username.trim().toLowerCase())
@@ -33,21 +38,117 @@ class FriendsService {
     return {'uid': uid, ...userDoc.data()!};
   }
 
-  /// Add a friend (both directions so each user sees the other).
-  static Future<void> addFriend(String uid, String friendUid) async {
+  // ── Friend Requests ───────────────────────────────────
+
+  /// Send a friend request from [uid] to [toUid].
+  static Future<void> sendFriendRequest({
+    required String uid,
+    required String toUid,
+    required String fromDisplayName,
+    required String fromUsername,
+  }) async {
+    await _db
+        .collection('users')
+        .doc(toUid)
+        .collection('friendRequests')
+        .doc(uid)
+        .set({
+      'fromUid':      uid,
+      'fromName':     fromDisplayName,
+      'fromUsername': fromUsername,
+      'sentAt':       FieldValue.serverTimestamp(),
+      'status':       'pending',
+    });
+  }
+
+  /// Cancel / withdraw a friend request that [uid] sent to [toUid].
+  static Future<void> cancelFriendRequest({
+    required String uid,
+    required String toUid,
+  }) async {
+    await _db
+        .collection('users')
+        .doc(toUid)
+        .collection('friendRequests')
+        .doc(uid)
+        .delete();
+  }
+
+  /// Accept a friend request: [uid] accepts request from [fromUid].
+  static Future<void> acceptFriendRequest({
+    required String uid,
+    required String fromUid,
+  }) async {
     final batch = _db.batch();
 
+    // Mark request accepted
+    batch.update(
+      _db.collection('users').doc(uid).collection('friendRequests').doc(fromUid),
+      {'status': 'accepted'},
+    );
+
+    // Add mutual friendship
     batch.set(
-      _db.collection('users').doc(uid).collection('friends').doc(friendUid),
+      _db.collection('users').doc(uid).collection('friends').doc(fromUid),
       {'addedAt': FieldValue.serverTimestamp()},
     );
     batch.set(
-      _db.collection('users').doc(friendUid).collection('friends').doc(uid),
+      _db.collection('users').doc(fromUid).collection('friends').doc(uid),
       {'addedAt': FieldValue.serverTimestamp()},
     );
 
     await batch.commit();
   }
+
+  /// Decline a friend request: [uid] declines request from [fromUid].
+  static Future<void> declineFriendRequest({
+    required String uid,
+    required String fromUid,
+  }) async {
+    await _db
+        .collection('users')
+        .doc(uid)
+        .collection('friendRequests')
+        .doc(fromUid)
+        .delete();
+  }
+
+  /// Get all pending incoming friend requests for [uid].
+  
+static Future<List<Map<String, dynamic>>> getPendingRequests(String uid) async {
+  final snap = await _db
+      .collection('users')
+      .doc(uid)
+      .collection('friendRequests')
+      .where('status', isEqualTo: 'pending')
+      .get();
+
+  final docs = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+  // Sort by client side timestamp (newest first). Server timestamp may be null if just created, so we default to 0.
+  docs.sort((a, b) {
+    final aTime = (a['sentAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
+    final bTime = (b['sentAt'] as Timestamp?)?.millisecondsSinceEpoch ?? 0;
+    return bTime.compareTo(aTime);
+  });
+
+  return docs;
+}
+
+  /// Check if [uid] has already sent a request to [toUid] (pending).
+  static Future<bool> hasPendingRequestTo({
+    required String uid,
+    required String toUid,
+  }) async {
+    final doc = await _db
+        .collection('users')
+        .doc(toUid)
+        .collection('friendRequests')
+        .doc(uid)
+        .get();
+    return doc.exists && doc.data()?['status'] == 'pending';
+  }
+
+  // ── Friends ───────────────────────────────────────────
 
   /// Remove a friend (both directions).
   static Future<void> removeFriend(String uid, String friendUid) async {

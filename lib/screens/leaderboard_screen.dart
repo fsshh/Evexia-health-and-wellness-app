@@ -47,9 +47,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   @override
   Widget build(BuildContext context) {
     final currentUid = AuthService.currentUid;
+    final isDark  = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? const Color(0xFF0F0F1A) : const Color(0xFFF7F8FA);
+    final txtColor = isDark ? Colors.white : const Color(0xFF1A1A2E);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FA),
+      backgroundColor: bgColor,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -60,8 +63,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Leaderboard',
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Color(0xFF1A1A2E))),
+                  Text('Leaderboard',
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: txtColor)),
                   const SizedBox(height: 4),
                   Text('You and your friends ranked by total EXP.',
                       style: TextStyle(fontSize: 13, color: Colors.grey[500])),
@@ -71,7 +74,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
             // ── Top 3 podium ────────────────────────────
             if (!_loading && _entries.length >= 3)
-              _Podium(entries: _entries.take(3).toList(), currentUid: currentUid),
+              _Podium(entries: _entries.take(3).toList(), currentUid: currentUid, isDark: isDark),
 
             const SizedBox(height: 16),
 
@@ -113,6 +116,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                 rankLabel: _rankLabel(level),
                                 rankColor: _rankColor(level),
                                 isMe: isMe,
+                                isDark: isDark,
                               );
                             },
                           ),
@@ -129,7 +133,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 class _Podium extends StatelessWidget {
   final List<Map<String, dynamic>> entries;
   final String? currentUid;
-  const _Podium({required this.entries, required this.currentUid});
+  final bool isDark;
+  const _Podium({required this.entries, required this.currentUid, required this.isDark});
 
   Color _colorFromName(String name) {
     final colors = [
@@ -150,6 +155,8 @@ class _Podium extends StatelessWidget {
       const Color(0xFFC0C0C0),
       const Color(0xFFCD7F32),
     ];
+    final nameColor = isDark ? Colors.white : const Color(0xFF1A1A2E);
+    final expColor  = isDark ? Colors.grey[400]! : Colors.grey[500]!;
 
     return Expanded(
       child: Column(
@@ -172,9 +179,9 @@ class _Podium extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(name.split(' ').first,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E)),
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: nameColor),
               maxLines: 1, overflow: TextOverflow.ellipsis),
-          Text('$exp EXP', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+          Text('$exp EXP', style: TextStyle(fontSize: 11, color: expColor)),
           const SizedBox(height: 6),
           Container(
             height: height,
@@ -222,6 +229,7 @@ class _LeaderboardTile extends StatelessWidget {
   final String rankLabel;
   final Color rankColor;
   final bool isMe;
+  final bool isDark;
 
   const _LeaderboardTile({
     required this.rank,
@@ -231,6 +239,7 @@ class _LeaderboardTile extends StatelessWidget {
     required this.rankLabel,
     required this.rankColor,
     required this.isMe,
+    required this.isDark,
   });
 
   Color _colorFromName(String n) {
@@ -250,11 +259,20 @@ class _LeaderboardTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cardColor = isMe
+        ? const Color(0xFF1A1A2E)
+        : (isDark ? const Color(0xFF1E1E2E) : Colors.white);
+    final nameColor = isMe ? Colors.white : (isDark ? Colors.white : const Color(0xFF1A1A2E));
+    final subColor  = isMe ? Colors.white60 : Colors.grey[500]!;
+    final rankNumColor = isMe ? Colors.white70 : Colors.grey[400]!;
+    final expColor  = isMe ? Colors.white : (isDark ? Colors.white : const Color(0xFF1A1A2E));
+    final expSubColor = isMe ? Colors.white60 : Colors.grey[400]!;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isMe ? const Color(0xFF1A1A2E) : Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [BoxShadow(
             color: isMe
@@ -274,7 +292,7 @@ class _LeaderboardTile extends StatelessWidget {
                       style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
-                          color: isMe ? Colors.white70 : Colors.grey[400])),
+                          color: rankNumColor)),
             ),
           ),
           const SizedBox(width: 10),
@@ -296,7 +314,7 @@ class _LeaderboardTile extends StatelessWidget {
                     Text(name,
                         style: TextStyle(
                             fontSize: 14, fontWeight: FontWeight.w700,
-                            color: isMe ? Colors.white : const Color(0xFF1A1A2E))),
+                            color: nameColor)),
                     if (isMe) ...[
                       const SizedBox(width: 6),
                       Container(
@@ -312,9 +330,7 @@ class _LeaderboardTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text('$rankLabel  •  Lvl $level',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: isMe ? Colors.white60 : Colors.grey[500])),
+                    style: TextStyle(fontSize: 11, color: subColor)),
               ],
             ),
           ),
@@ -325,11 +341,9 @@ class _LeaderboardTile extends StatelessWidget {
               Text('$exp',
                   style: TextStyle(
                       fontSize: 15, fontWeight: FontWeight.w800,
-                      color: isMe ? Colors.white : const Color(0xFF1A1A2E))),
+                      color: expColor)),
               Text('EXP',
-                  style: TextStyle(
-                      fontSize: 10,
-                      color: isMe ? Colors.white60 : Colors.grey[400])),
+                  style: TextStyle(fontSize: 10, color: expSubColor)),
             ],
           ),
         ],

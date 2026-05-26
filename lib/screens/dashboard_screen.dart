@@ -242,7 +242,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   /// Finalize week: save report, reset tasks, bump week number, show animations.
-  Future<void> _finalizeWeek({bool auto = false}) async {
+  /// [devMode] makes the summary modal dismissible (for dev tool testing).
+  Future<void> _finalizeWeek({bool auto = false, bool devMode = false}) async {
     if (_recommendations == null) return;
 
     final uid        = AuthService.currentUid;
@@ -282,16 +283,19 @@ class _DashboardScreenState extends State<DashboardScreen>
       );
     }
 
-    // Show the week report modal BEFORE resetting
+    // Show the week report modal BEFORE resetting.
+    // Returns false if dismissed via drag/tap-outside (dev mode only) — abort reset.
     if (mounted) {
-      await _showWeekReportModal(
+      final confirmed = await _showWeekReportModal(
         weekNumber:   _weekNumber,
         totalTasks:   totalTasks,
         doneTasks:    doneTasks,
         missedTasks:  missedTasks,
         expEarned:    expEarned,
         commendation: commendation,
+        devMode:      devMode,
       );
+      if (!confirmed) return;
     }
 
     // Reset state
@@ -339,19 +343,20 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
-  Future<void> _showWeekReportModal({
+  Future<bool> _showWeekReportModal({
     required int weekNumber,
     required int totalTasks,
     required int doneTasks,
     required int missedTasks,
     required int expEarned,
     required String commendation,
+    bool devMode = false,
   }) async {
-    await showModalBottomSheet(
+    final result = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: Colors.transparent,
-      isDismissible: false,
-      enableDrag: false,
+      isDismissible: devMode,
+      enableDrag: devMode,
       builder: (_) => _WeekReportModal(
         weekNumber:   weekNumber,
         totalTasks:   totalTasks,
@@ -361,6 +366,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         commendation: commendation,
       ),
     );
+    return result == true;
   }
 
   Future<void> _fetchRecommendations() async {
@@ -870,8 +876,9 @@ class _DashboardScreenState extends State<DashboardScreen>
 
               // ── Tab 3: Profile ────────────────────────
               ProfileScreen(
-                totalExp:   _totalExp,
-                weekNumber: _weekNumber,
+                totalExp:         _totalExp,
+                weekNumber:       _weekNumber,
+                onDevResetWeek:   () => _finalizeWeek(auto: false, devMode: true),
               ),
             ],
           ),
@@ -1126,7 +1133,7 @@ class _WeekReportModal extends StatelessWidget {
             width: double.infinity,
             height: 52,
             child: ElevatedButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(context, true),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF1A1A2E),
                 foregroundColor: Colors.white,
@@ -1239,9 +1246,10 @@ class _ClaimDayButton extends StatelessWidget {
               fontSize: 15, fontWeight: FontWeight.w700),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF1A1A2E),
+          backgroundColor: const Color.fromARGB(255, 121, 121, 255),
           foregroundColor: Colors.white,
           disabledBackgroundColor: Colors.grey[300],
+          disabledForegroundColor: Colors.black45,
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14)),
           elevation: 0,
