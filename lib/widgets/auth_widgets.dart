@@ -34,9 +34,12 @@ class FieldLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Text(text,
-        style: const TextStyle(
-            fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E)));
+        style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.white : const Color(0xFF1A1A2E)));
   }
 }
 
@@ -46,6 +49,7 @@ class InputField extends StatelessWidget {
   final bool obscure;
   final TextInputType? keyboardType;
   final Widget? suffix;
+  final ValueChanged<String>? onChanged;
 
   const InputField({
     super.key,
@@ -54,33 +58,41 @@ class InputField extends StatelessWidget {
     this.obscure = false,
     this.keyboardType,
     this.suffix,
+    this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return TextField(
       controller: controller,
       obscureText: obscure,
       keyboardType: keyboardType,
-      style: const TextStyle(fontSize: 15, color: Color(0xFF1A1A2E)),
+      onChanged: onChanged,
+      style: TextStyle(
+          fontSize: 15,
+          color: isDark ? Colors.white : const Color(0xFF1A1A2E)),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(color: Colors.grey[400]),
         suffixIcon: suffix,
         filled: true,
-        fillColor: Colors.grey[50],
+        fillColor: isDark ? const Color(0xFF2A2A3E) : Colors.grey[50],
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey[200]!)),
+            borderSide: BorderSide(
+                color: isDark ? Colors.grey[700]! : Colors.grey[200]!)),
         enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey[200]!)),
+            borderSide: BorderSide(
+                color: isDark ? Colors.grey[700]! : Colors.grey[200]!)),
         focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide:
-                const BorderSide(color: Color(0xFF1A1A2E), width: 1.5)),
+            borderSide: BorderSide(
+                color: isDark ? Colors.white54 : const Color(0xFF1A1A2E),
+                width: 1.5)),
       ),
     );
   }

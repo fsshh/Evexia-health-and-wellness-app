@@ -5,17 +5,25 @@ import '../models/user_profile.dart';
 // Firestore schema
 // ─────────────────────────────────────────────────────────
 // users/{uid}
-//   displayName, email, createdAt, totalExp, weekNumber
+//   displayName, username, email, createdAt, totalExp, weekNumber,
+//   weekStartTimestamp
+//
+// usernames/{username}   ← uniqueness index
+//   uid: string
 //
 // users/{uid}/survey/answers
 //   primaryGoals, struggles, mealPlanningFrequency,
 //   activityLevel, sleepHours, dietaryPatterns, notes
 //
 // users/{uid}/weeks/week_{N}
-//   savedAt, expEarned,
+//   savedAt, expEarned, weekStart, weekEnd
 //   recommendations: [ { category, title, summary,
 //     todos: [ { task, detail, days: [0|1|2 …] } ] } ]
 //   0 = neutral, 1 = done, 2 = missed
+//
+// users/{uid}/weekReports/week_{N}
+//   weekNumber, weekStart, weekEnd, totalTasks, doneTasks,
+//   missedTasks, expEarned, commendation, createdAt
 // ─────────────────────────────────────────────────────────
 
 class DatabaseService {
@@ -39,20 +47,59 @@ class DatabaseService {
     }
   }
 
+  // ── Username uniqueness ───────────────────────────────
+
+  /// Returns true if the username is available (not taken).
+  static Future<bool> isUsernameAvailable(String username) async {
+    final doc = await _db.collection('usernames').doc(username.toLowerCase()).get();
+    return !doc.exists;
+  }
+
+  /// Validates username format: 3–20 chars, letters/numbers/._  no spaces.
+  static String? validateUsername(String username) {
+    if (username.isEmpty) return 'Username is required.';
+    if (username.length < 3) return 'Username must be at least 3 characters.';
+    if (username.length > 20) return 'Username must be 20 characters or fewer.';
+    final regex = RegExp(r'^[a-zA-Z0-9._]+$');
+    if (!regex.hasMatch(username)) {
+      return 'Only letters, numbers, "." and "_" are allowed.';
+    }
+    return null;
+  }
+
   // ── User profile ──────────────────────────────────────
 
+  /// Creates the user document and reserves the username atomically.
   static Future<void> createUserProfile({
     required String uid,
     required String email,
     required String displayName,
+    required String username,
   }) async {
-    await _db.collection('users').doc(uid).set({
-      'displayName': displayName,
-      'email':       email.toLowerCase(),
-      'createdAt':   FieldValue.serverTimestamp(),
-      'totalExp':    0,
-      'weekNumber':  1,
-    }, SetOptions(merge: true));
+    final batch = _db.batch();
+
+    // Reserve username
+    batch.set(
+      _db.collection('usernames').doc(username.toLowerCase()),
+      {'uid': uid},
+    );
+
+    // Create user doc
+    batch.set(
+      _db.collection('users').doc(uid),
+      {
+        'displayName':        displayName.isEmpty ? username : displayName,
+        'username':           username.toLowerCase(),
+        'email':              email.toLowerCase(),
+        'createdAt':          FieldValue.serverTimestamp(),
+        'totalExp':           0,
+        'weekNumber':         1,
+        'weekStartTimestamp': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+
+    await batch.commit();
   }
 
   static Future<Map<String, dynamic>?> getUserProfile(String uid) async {
@@ -66,8 +113,9 @@ class DatabaseService {
     required int weekNumber,
   }) async {
     await _db.collection('users').doc(uid).update({
-      'totalExp':   totalExp,
-      'weekNumber': weekNumber,
+      'totalExp':           totalExp,
+      'weekNumber':         weekNumber,
+      'weekStartTimestamp': FieldValue.serverTimestamp(),
     });
   }
 
@@ -104,7 +152,6 @@ class DatabaseService {
 
     if (!doc.exists || doc.data() == null) return null;
     final d = doc.data()!;
-
     final notes = d['notes'] as String? ?? '';
 
     return UserProfile(
@@ -125,12 +172,12 @@ class DatabaseService {
     required int weekNumber,
     required List<AIRecommendation> recommendations,
     required int expEarned,
+    DateTime? weekStart,
   }) async {
     final List<Map<String, dynamic>> recsData = [];
 
     for (final rec in recommendations) {
       final List<Map<String, dynamic>> todosData = [];
-
       for (final todo in rec.todos) {
         todosData.add({
           'task':   todo.task,
@@ -138,7 +185,6 @@ class DatabaseService {
           'days':   todo.days.map(_encodeDay).toList(),
         });
       }
-
       recsData.add({
         'category': rec.category,
         'title':    rec.title,
@@ -155,6 +201,7 @@ class DatabaseService {
         .set({
       'savedAt':         FieldValue.serverTimestamp(),
       'expEarned':       expEarned,
+      'weekStart':       weekStart != null ? Timestamp.fromDate(weekStart) : FieldValue.serverTimestamp(),
       'recommendations': recsData,
     });
   }
@@ -178,21 +225,17 @@ class DatabaseService {
     final List<AIRecommendation> result = [];
 
     for (final r in rawRecs as List<dynamic>) {
-      final recMap  = r as Map<String, dynamic>;
+      final recMap   = r as Map<String, dynamic>;
       final rawTodos = recMap['todos'] as List<dynamic>? ?? [];
-
       final List<TodoItem> todos = [];
 
       for (final t in rawTodos) {
         final todoMap = t as Map<String, dynamic>;
         final rawDays = todoMap['days'] as List<dynamic>? ?? [];
-
         todos.add(TodoItem(
           task:   todoMap['task']   as String? ?? '',
           detail: todoMap['detail'] as String? ?? '',
-          days:   rawDays
-              .map((d) => _decodeDay((d as num).toInt()))
-              .toList(),
+          days:   rawDays.map((d) => _decodeDay((d as num).toInt())).toList(),
         ));
       }
 
@@ -205,5 +248,49 @@ class DatabaseService {
     }
 
     return result;
+  }
+
+  // ── Week Reports ──────────────────────────────────────
+
+  /// Saves a weekly performance report when the week is finalized.
+  static Future<void> saveWeekReport({
+    required String uid,
+    required int weekNumber,
+    required int totalTasks,
+    required int doneTasks,
+    required int missedTasks,
+    required int expEarned,
+    required String commendation,
+    required DateTime weekStart,
+    required DateTime weekEnd,
+  }) async {
+    await _db
+        .collection('users')
+        .doc(uid)
+        .collection('weekReports')
+        .doc('week_$weekNumber')
+        .set({
+      'weekNumber':   weekNumber,
+      'weekStart':    Timestamp.fromDate(weekStart),
+      'weekEnd':      Timestamp.fromDate(weekEnd),
+      'totalTasks':   totalTasks,
+      'doneTasks':    doneTasks,
+      'missedTasks':  missedTasks,
+      'expEarned':    expEarned,
+      'commendation': commendation,
+      'createdAt':    FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Loads all weekly reports ordered by week number descending.
+  static Future<List<Map<String, dynamic>>> loadWeekReports(String uid) async {
+    final snap = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('weekReports')
+        .orderBy('weekNumber', descending: true)
+        .get();
+
+    return snap.docs.map((d) => d.data()).toList();
   }
 }

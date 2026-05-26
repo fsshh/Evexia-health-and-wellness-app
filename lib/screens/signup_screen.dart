@@ -4,7 +4,6 @@ import '../services/database_service.dart';
 import '../widgets/auth_widgets.dart';
 import 'onboarding_screen.dart';
 
-
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
 
@@ -13,23 +12,50 @@ class SignupScreen extends StatefulWidget {
 }
 
 class _SignupScreenState extends State<SignupScreen> {
+  final _usernameCtrl = TextEditingController();
   final _nameCtrl     = TextEditingController();
   final _emailCtrl    = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _confirmCtrl  = TextEditingController();
-  bool _loading  = false;
-  bool _obscure  = true;
-  bool _obscureC = true;
+
+  bool _loading        = false;
+  bool _obscure        = true;
+  bool _obscureC       = true;
+  bool _checkingUser   = false;
   String? _error;
+  String? _usernameError;
+
+  // Debounce username check
+  Future<void> _checkUsername(String value) async {
+    final formatErr = DatabaseService.validateUsername(value);
+    if (formatErr != null) {
+      setState(() => _usernameError = formatErr);
+      return;
+    }
+    setState(() { _checkingUser = true; _usernameError = null; });
+    final available = await DatabaseService.isUsernameAvailable(value);
+    if (!mounted) return;
+    setState(() {
+      _checkingUser  = false;
+      _usernameError = available ? null : 'Username is already taken.';
+    });
+  }
 
   Future<void> _signUp() async {
-    final name     = _nameCtrl.text.trim();
+    final username = _usernameCtrl.text.trim();
+    final name     = _nameCtrl.text.trim();        // optional
     final email    = _emailCtrl.text.trim();
     final password = _passwordCtrl.text;
     final confirm  = _confirmCtrl.text;
 
-    if (name.isEmpty || email.isEmpty || password.isEmpty || confirm.isEmpty) {
-      setState(() => _error = 'Please fill in all fields.');
+    // Validate required fields
+    final usernameErr = DatabaseService.validateUsername(username);
+    if (usernameErr != null) {
+      setState(() => _usernameError = usernameErr);
+      return;
+    }
+    if (email.isEmpty || password.isEmpty || confirm.isEmpty) {
+      setState(() => _error = 'Please fill in all required fields.');
       return;
     }
     if (password != confirm) {
@@ -43,8 +69,19 @@ class _SignupScreenState extends State<SignupScreen> {
 
     setState(() { _loading = true; _error = null; });
 
+    // Check username availability one more time before committing
+    final available = await DatabaseService.isUsernameAvailable(username);
+    if (!available) {
+      if (!mounted) return;
+      setState(() { _loading = false; _usernameError = 'Username was just taken. Please choose another.'; });
+      return;
+    }
+
+    // Display name falls back to username if name is blank
+    final displayName = name.isEmpty ? username : name;
+
     final err = await AuthService.signUp(
-        email: email, password: password, displayName: name);
+        email: email, password: password, displayName: displayName);
 
     if (err != null) {
       if (!mounted) return;
@@ -56,13 +93,15 @@ class _SignupScreenState extends State<SignupScreen> {
 
     final uid = AuthService.currentUid!;
     await DatabaseService.createUserProfile(
-        uid: uid, email: email, displayName: name);
+      uid:         uid,
+      email:       email,
+      displayName: displayName,
+      username:    username,
+    );
 
     if (!mounted) return;
     setState(() => _loading = false);
 
-    // Replace entire navigation stack with onboarding
-    // so back button cannot return to signup
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const OnboardingScreen()),
       (route) => false,
@@ -71,8 +110,12 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg     = isDark ? const Color(0xFF0F0F1A) : Colors.white;
+    final txt    = isDark ? Colors.white : const Color(0xFF1A1A2E);
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: bg,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -81,14 +124,14 @@ class _SignupScreenState extends State<SignupScreen> {
             children: [
               const SizedBox(height: 60),
               IconButton(
-                icon: const Icon(Icons.arrow_back_ios, size: 18, color: Color(0xFF1A1A2E)),
+                icon: Icon(Icons.arrow_back_ios, size: 18, color: txt),
                 onPressed: () => Navigator.pop(context),
                 padding: EdgeInsets.zero,
               ),
               const SizedBox(height: 24),
 
-              const Text('Create account',
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Color(0xFF1A1A2E))),
+              Text('Create account',
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: txt)),
               const SizedBox(height: 6),
               Text('Start your personalised health journey.',
                   style: TextStyle(fontSize: 15, color: Colors.grey[500])),
@@ -99,11 +142,49 @@ class _SignupScreenState extends State<SignupScreen> {
                 const SizedBox(height: 20),
               ],
 
-              const FieldLabel('Full Name'),
+              // ── Username (required) ──────────────────
+              const FieldLabel('Username'),
+              const SizedBox(height: 4),
+              Text('Letters, numbers, "." and "_" only. No spaces.',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+              const SizedBox(height: 8),
+              InputField(
+                controller: _usernameCtrl,
+                hint: 'e.g. jane_doe',
+                suffix: _checkingUser
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(width: 16, height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2)))
+                    : (_usernameError == null && _usernameCtrl.text.isNotEmpty)
+                        ? const Icon(Icons.check_circle_rounded,
+                            color: Color(0xFF4CAF50), size: 20)
+                        : null,
+                onChanged: (v) {
+                  if (v.length >= 3) _checkUsername(v);
+                  else setState(() => _usernameError = null);
+                },
+              ),
+              if (_usernameError != null) ...[
+                const SizedBox(height: 6),
+                Text(_usernameError!,
+                    style: TextStyle(fontSize: 12, color: Colors.red.shade400)),
+              ],
+              const SizedBox(height: 20),
+
+              // ── Full Name (optional) ──────────────────
+              Row(children: [
+                const FieldLabel('Full Name'),
+                const SizedBox(width: 6),
+                Text('(optional)',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[400],
+                        fontStyle: FontStyle.italic)),
+              ]),
               const SizedBox(height: 8),
               InputField(controller: _nameCtrl, hint: 'Jane Doe'),
               const SizedBox(height: 20),
 
+              // ── Email ────────────────────────────────
               const FieldLabel('Email'),
               const SizedBox(height: 8),
               InputField(
@@ -113,6 +194,7 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
               const SizedBox(height: 20),
 
+              // ── Password ─────────────────────────────
               const FieldLabel('Password'),
               const SizedBox(height: 8),
               InputField(
@@ -129,6 +211,7 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
               const SizedBox(height: 20),
 
+              // ── Confirm Password ──────────────────────
               const FieldLabel('Confirm Password'),
               const SizedBox(height: 8),
               InputField(
@@ -172,10 +255,10 @@ class _SignupScreenState extends State<SignupScreen> {
                     text: TextSpan(
                       text: 'Already have an account? ',
                       style: TextStyle(color: Colors.grey[500], fontSize: 14),
-                      children: const [
+                      children: [
                         TextSpan(text: 'Sign in',
                             style: TextStyle(
-                                color: Color(0xFF1A1A2E), fontWeight: FontWeight.w700)),
+                                color: txt, fontWeight: FontWeight.w700)),
                       ],
                     ),
                   ),
@@ -191,6 +274,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   void dispose() {
+    _usernameCtrl.dispose();
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();

@@ -6,25 +6,31 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 // users/{uid}/friends/{friendUid}
 //   addedAt: timestamp
 //
-// users/{uid}           (already exists)
-//   displayName, email, totalExp, weekNumber
+// users/{uid}
+//   displayName, username, email, totalExp, weekNumber
 // ─────────────────────────────────────────────────────────
 
 class FriendsService {
   static final _db = FirebaseFirestore.instance;
 
-  /// Search for a user by exact email address.
+  /// Search for a user by exact username (case-insensitive).
   /// Returns their public profile or null if not found.
-  static Future<Map<String, dynamic>?> searchUser(String email) async {
-    final query = await _db
-        .collection('users')
-        .where('email', isEqualTo: email.trim().toLowerCase())
-        .limit(1)
+  static Future<Map<String, dynamic>?> searchUser(String username) async {
+    // Look up uid via the username index
+    final usernameDoc = await _db
+        .collection('usernames')
+        .doc(username.trim().toLowerCase())
         .get();
 
-    if (query.docs.isEmpty) return null;
-    final doc = query.docs.first;
-    return {'uid': doc.id, ...doc.data()};
+    if (!usernameDoc.exists) return null;
+
+    final uid = usernameDoc.data()?['uid'] as String?;
+    if (uid == null) return null;
+
+    final userDoc = await _db.collection('users').doc(uid).get();
+    if (!userDoc.exists) return null;
+
+    return {'uid': uid, ...userDoc.data()!};
   }
 
   /// Add a friend (both directions so each user sees the other).
@@ -63,7 +69,6 @@ class FriendsService {
 
     if (friendDocs.docs.isEmpty) return [];
 
-    // Fetch each friend's profile in parallel
     final futures = friendDocs.docs.map((d) async {
       final profile = await _db.collection('users').doc(d.id).get();
       if (!profile.exists) return null;
@@ -76,21 +81,17 @@ class FriendsService {
 
   /// Get leaderboard: current user + all friends, sorted by totalExp descending.
   static Future<List<Map<String, dynamic>>> getLeaderboard(String uid) async {
-    // Fetch current user profile
     final selfDoc = await _db.collection('users').doc(uid).get();
     if (!selfDoc.exists) return [];
 
-    final self = {'uid': uid, ...selfDoc.data()!};
-
-    // Fetch friends
+    final self    = {'uid': uid, ...selfDoc.data()!};
     final friends = await getFriends(uid);
+    final all     = [self, ...friends];
 
-    // Combine and sort
-    final all = [self, ...friends];
     all.sort((a, b) {
       final expA = (a['totalExp'] as int?) ?? 0;
       final expB = (b['totalExp'] as int?) ?? 0;
-      return expB.compareTo(expA); // descending
+      return expB.compareTo(expA);
     });
 
     return all;

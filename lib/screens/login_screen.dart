@@ -5,6 +5,7 @@ import 'onboarding_screen.dart';
 import 'dashboard_screen.dart';
 import '../widgets/auth_widgets.dart';
 import 'signup_screen.dart';
+import 'package:evexia_app/providers/theme_notifier.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});

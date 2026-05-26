@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'screens/auth_gate.dart';
+import 'providers/theme_notifier.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,18 +17,34 @@ class EvexiaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Evexia',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1A1A2E),
-          brightness: Brightness.light,
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeNotifier,
+      builder: (_, mode, __) => MaterialApp(
+        title: 'Evexia',
+        debugShowCheckedModeBanner: false,
+        themeMode: mode,
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF1A1A2E),
+            brightness: Brightness.light,
+          ),
+          fontFamily: 'Georgia',
+          useMaterial3: true,
+          scaffoldBackgroundColor: const Color(0xFFF7F8FA),
+          cardColor: Colors.white,
         ),
-        fontFamily: 'Georgia',
-        useMaterial3: true,
+        darkTheme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF4A90D9),
+            brightness: Brightness.dark,
+          ),
+          fontFamily: 'Georgia',
+          useMaterial3: true,
+          scaffoldBackgroundColor: const Color(0xFF0F0F1A),
+          cardColor: const Color(0xFF1E1E2E),
+        ),
+        home: const AuthGate(),
       ),
-      home: const AuthGate(),
     );
   }
 }

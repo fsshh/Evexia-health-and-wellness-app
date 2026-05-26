@@ -2,69 +2,55 @@ import 'package:flutter/material.dart';
 import '../models/user_profile.dart';
 import '../services/ai_service.dart';
 import '../services/auth_service.dart';
+import '../services/database_service.dart';
 import 'friends_screen.dart';
 import 'leaderboard_screen.dart';
 import 'profile_screen.dart';
 import 'welcome_screen.dart';
-import '../services/database_service.dart';
+import '../providers/theme_notifier.dart';
 
 const _dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-/// Returns today's index in the week (0 = Monday … 6 = Sunday)
-/// matching our _dayLabels order.
-int _todayIndex() {
-  // DateTime.weekday: 1=Mon … 7=Sun  →  subtract 1 for 0-based
-  return DateTime.now().weekday - 1;
-}
+int _todayIndex() => DateTime.now().weekday - 1; // 0=Mon … 6=Sun
 
 // ─── EXP / Level system ───────────────────────────────────
-// EXP rates (per day circle):
-//   Done    = +3 EXP
-//   Missed  = -1 EXP
-//   Neutral =  0 EXP
-//
-// Perfect week: 3 categories x 4 tasks x 7 days = 84 done = +252 EXP
-//
-// Level thresholds scale up each level (gets harder):
-//   Level 1 → 2 :   500 EXP  (~2 perfect weeks)
-//   Level 2 → 3 : 1,000 EXP  (~4 perfect weeks)
-//   Level N → N+1: N * 500 EXP
-//
-// So reaching Level 5 requires 500+1000+1500+2000 = 5,000 EXP (~20 perfect weeks)
 const int _expPerDone   =  3;
 const int _expPerMissed = -1;
 
-// EXP required to go from level N to N+1
 int _expForLevel(int level) => level * 500;
 
-// Total EXP needed to reach a given level from 0
 int _totalExpForLevel(int level) {
   int total = 0;
-  for (int i = 1; i < level; i++) {
-    total += _expForLevel(i);
-  }
+  for (int i = 1; i < level; i++) total += _expForLevel(i);
   return total;
 }
 
-// Derive current level from total accumulated EXP
 int _levelFromExp(int totalExp) {
   int level = 1;
-  while (totalExp >= _totalExpForLevel(level + 1)) {
-    level++;
-  }
+  while (totalExp >= _totalExpForLevel(level + 1)) level++;
   return level;
 }
 
-// EXP accumulated within the current level
 int _expIntoLevel(int totalExp) {
   final level = _levelFromExp(totalExp);
   return totalExp - _totalExpForLevel(level);
 }
 
-// EXP required to complete the current level
 int _expNeededForCurrentLevel(int totalExp) {
   final level = _levelFromExp(totalExp);
   return _expForLevel(level);
+}
+
+int _computeDayExp(List<AIRecommendation> recs, int dayIndex) {
+  int exp = 0;
+  for (final rec in recs) {
+    for (final todo in rec.todos) {
+      final state = todo.days[dayIndex];
+      if (state == DayState.done)   exp += _expPerDone;
+      if (state == DayState.missed) exp += _expPerMissed;
+    }
+  }
+  return exp.clamp(0, 99999);
 }
 
 int _computeWeeklyExp(List<AIRecommendation> recs) {
@@ -78,6 +64,18 @@ int _computeWeeklyExp(List<AIRecommendation> recs) {
     }
   }
   return exp.clamp(0, 99999);
+}
+
+/// Computes a commendation string based on weekly performance.
+String _buildCommendation(int doneTasks, int totalTasks) {
+  if (totalTasks == 0) return 'Keep going — every step counts!';
+  final pct = doneTasks / totalTasks;
+  if (pct == 1.0)  return 'Perfect week! Absolutely flawless — you crushed every single task! 🔥';
+  if (pct >= 0.85) return 'Outstanding effort! You were so close to perfect. Keep that momentum!';
+  if (pct >= 0.70) return 'Great week! You nailed the majority of your tasks. Consistency is key!';
+  if (pct >= 0.50) return "Good effort! You're over halfway there. Push a little harder next week!";
+  if (pct >= 0.30) return "You've made a start! Every habit takes time — don't give up.";
+  return "Tough week? That's okay. Tomorrow is a fresh start. You've got this! 💪";
 }
 
 String _rankLabel(int level) {
@@ -104,6 +102,7 @@ class DashboardScreen extends StatefulWidget {
   final int savedTotalExp;
   final int savedWeekNumber;
   final List<AIRecommendation>? savedRecommendations;
+  final DateTime? savedWeekStart;
 
   const DashboardScreen({
     super.key,
@@ -111,6 +110,7 @@ class DashboardScreen extends StatefulWidget {
     this.savedTotalExp = 0,
     this.savedWeekNumber = 1,
     this.savedRecommendations,
+    this.savedWeekStart,
   });
 
   @override
@@ -125,9 +125,12 @@ class _DashboardScreenState extends State<DashboardScreen>
   String? _error;
   String _loadingStatus = 'Generating your plan...';
 
-  // EXP state — persists across weekly resets
   late int _totalExp;
   late int _weekNumber;
+  late DateTime _weekStart;
+
+  // Which days have been claimed (0=Mon … 6=Sun)
+  final Set<int> _claimedDays = {};
 
   // Level-up animation
   late AnimationController _levelUpCtrl;
@@ -140,22 +143,38 @@ class _DashboardScreenState extends State<DashboardScreen>
   late Animation<double> _expBurstAnim;
   int _lastGained = 0;
 
+  // New-week announcement animation
+  late AnimationController _newWeekCtrl;
+  late Animation<double> _newWeekAnim;
+  bool _showNewWeek = false;
+
   @override
   void initState() {
     super.initState();
-    _levelUpCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
-    _levelUpAnim = CurvedAnimation(parent: _levelUpCtrl, curve: Curves.elasticOut);
+    _levelUpCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 600));
+    _levelUpAnim =
+        CurvedAnimation(parent: _levelUpCtrl, curve: Curves.elasticOut);
 
-    _expBurstCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
-    _expBurstAnim = CurvedAnimation(parent: _expBurstCtrl, curve: Curves.easeOut);
+    _expBurstCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1200));
+    _expBurstAnim =
+        CurvedAnimation(parent: _expBurstCtrl, curve: Curves.easeOut);
 
-    _totalExp    = widget.savedTotalExp;
-    _weekNumber  = widget.savedWeekNumber;
+    _newWeekCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 700));
+    _newWeekAnim =
+        CurvedAnimation(parent: _newWeekCtrl, curve: Curves.elasticOut);
+
+    _totalExp   = widget.savedTotalExp;
+    _weekNumber = widget.savedWeekNumber;
+    _weekStart  = widget.savedWeekStart ?? _currentMonday();
 
     if (widget.savedRecommendations != null) {
-      // Returning user — restore saved week data, skip AI call
       _recommendations = widget.savedRecommendations;
       _isLoading = false;
+      // Check if we need to auto-reset
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkAutoReset());
     } else {
       _fetchRecommendations();
     }
@@ -165,16 +184,199 @@ class _DashboardScreenState extends State<DashboardScreen>
   void dispose() {
     _levelUpCtrl.dispose();
     _expBurstCtrl.dispose();
+    _newWeekCtrl.dispose();
     super.dispose();
   }
 
+  DateTime _currentMonday() {
+    final now = DateTime.now();
+    return now.subtract(Duration(days: now.weekday - 1));
+  }
+
+  /// Auto-resets the week if the current Monday is past _weekStart.
+  Future<void> _checkAutoReset() async {
+    final monday = _currentMonday();
+    final weekStartDate = DateTime(
+        _weekStart.year, _weekStart.month, _weekStart.day);
+    final mondayDate = DateTime(monday.year, monday.month, monday.day);
+
+    if (mondayDate.isAfter(weekStartDate) && _recommendations != null) {
+      await _finalizeWeek(auto: true);
+    }
+  }
+
+  /// Claim EXP for today only.
+  void _claimDay() {
+    final today = _todayIndex();
+    if (_claimedDays.contains(today)) return;
+    if (_recommendations == null) return;
+
+    final prevLevel = _levelFromExp(_totalExp);
+    final gained    = _computeDayExp(_recommendations!, today);
+
+    setState(() {
+      _claimedDays.add(today);
+      _lastGained = gained;
+      _totalExp  += gained;
+    });
+
+    _autoSaveWeek();
+    _expBurstCtrl.forward(from: 0);
+
+    final uid = AuthService.currentUid;
+    if (uid != null) {
+      DatabaseService.updateExpAndWeek(
+          uid: uid, totalExp: _totalExp, weekNumber: _weekNumber);
+    }
+
+    // Level-up check
+    final newLevel = _levelFromExp(_totalExp);
+    if (newLevel > prevLevel) {
+      setState(() { _showLevelUp = true; _levelUpTo = newLevel; });
+      _levelUpCtrl.forward(from: 0).then((_) {
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) setState(() => _showLevelUp = false);
+        });
+      });
+    }
+  }
+
+  /// Finalize week: save report, reset tasks, bump week number, show animations.
+  Future<void> _finalizeWeek({bool auto = false}) async {
+    if (_recommendations == null) return;
+
+    final uid        = AuthService.currentUid;
+    final now        = DateTime.now();
+    final weekEnd    = now.subtract(const Duration(days: 1));
+    final totalTasks = _recommendations!.fold<int>(
+        0, (s, r) => s + r.todos.length * 7);
+    final doneTasks  = _recommendations!.fold<int>(
+        0,
+        (s, r) => s +
+            r.todos.fold<int>(
+                0,
+                (ts, t) =>
+                    ts + t.days.where((d) => d == DayState.done).length));
+    final missedTasks = _recommendations!.fold<int>(
+        0,
+        (s, r) => s +
+            r.todos.fold<int>(
+                0,
+                (ts, t) =>
+                    ts + t.days.where((d) => d == DayState.missed).length));
+    final expEarned   = _computeWeeklyExp(_recommendations!);
+    final commendation = _buildCommendation(doneTasks, totalTasks);
+
+    // Save report to Firestore
+    if (uid != null) {
+      await DatabaseService.saveWeekReport(
+        uid:          uid,
+        weekNumber:   _weekNumber,
+        totalTasks:   totalTasks,
+        doneTasks:    doneTasks,
+        missedTasks:  missedTasks,
+        expEarned:    expEarned,
+        commendation: commendation,
+        weekStart:    _weekStart,
+        weekEnd:      weekEnd,
+      );
+    }
+
+    // Show the week report modal BEFORE resetting
+    if (mounted) {
+      await _showWeekReportModal(
+        weekNumber:   _weekNumber,
+        totalTasks:   totalTasks,
+        doneTasks:    doneTasks,
+        missedTasks:  missedTasks,
+        expEarned:    expEarned,
+        commendation: commendation,
+      );
+    }
+
+    // Reset state
+    setState(() {
+      _weekNumber++;
+      _weekStart  = _currentMonday();
+      _claimedDays.clear();
+
+      _recommendations = _recommendations!.map((rec) {
+        return AIRecommendation(
+          category: rec.category,
+          title:    rec.title,
+          summary:  rec.summary,
+          todos: rec.todos
+              .map((todo) => TodoItem(task: todo.task, detail: todo.detail))
+              .toList(),
+        );
+      }).toList();
+    });
+
+    // Persist
+    if (uid != null) {
+      await DatabaseService.updateExpAndWeek(
+          uid: uid, totalExp: _totalExp, weekNumber: _weekNumber);
+      await DatabaseService.saveWeekData(
+        uid:             uid,
+        weekNumber:      _weekNumber,
+        recommendations: _recommendations!,
+        expEarned:       0,
+        weekStart:       _weekStart,
+      );
+    }
+
+    // "New tasks for this week!" banner
+    if (mounted) {
+      setState(() => _showNewWeek = true);
+      _newWeekCtrl.forward(from: 0);
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) {
+          _newWeekCtrl.reverse().then((_) {
+            if (mounted) setState(() => _showNewWeek = false);
+          });
+        }
+      });
+    }
+  }
+
+  Future<void> _showWeekReportModal({
+    required int weekNumber,
+    required int totalTasks,
+    required int doneTasks,
+    required int missedTasks,
+    required int expEarned,
+    required String commendation,
+  }) async {
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (_) => _WeekReportModal(
+        weekNumber:   weekNumber,
+        totalTasks:   totalTasks,
+        doneTasks:    doneTasks,
+        missedTasks:  missedTasks,
+        expEarned:    expEarned,
+        commendation: commendation,
+      ),
+    );
+  }
+
   Future<void> _fetchRecommendations() async {
-    setState(() { _isLoading = true; _error = null; _loadingStatus = 'Generating your plan...'; });
+    setState(() {
+      _isLoading = true;
+      _error     = null;
+      _loadingStatus = 'Generating your plan...';
+    });
     try {
       _startLoadingStatusCycle();
       final recs = await AIService.getRecommendations(widget.userProfile);
+      if (!mounted) return;
       setState(() { _recommendations = recs; _isLoading = false; });
+      _autoSaveWeek();
     } catch (e) {
+      if (!mounted) return;
       setState(() { _error = e.toString(); _isLoading = false; });
     }
   }
@@ -198,22 +400,23 @@ class _DashboardScreenState extends State<DashboardScreen>
     });
   }
 
-  void _toggleDay(int recIndex, int todoIndex, int dayIndex, DayState current) {
+  void _toggleDay(
+      int recIndex, int todoIndex, int dayIndex, DayState current) {
     final next = switch (current) {
       DayState.neutral => DayState.done,
       DayState.done    => DayState.missed,
       DayState.missed  => DayState.neutral,
     };
     setState(() {
-      final rec = _recommendations![recIndex];
+      final rec     = _recommendations![recIndex];
       final newTodo = rec.todos[todoIndex].copyWithDay(dayIndex, next);
       final newTodos = List<TodoItem>.from(rec.todos);
       newTodos[todoIndex] = newTodo;
       _recommendations![recIndex] = AIRecommendation(
         category: rec.category,
-        title: rec.title,
-        summary: rec.summary,
-        todos: newTodos,
+        title:    rec.title,
+        summary:  rec.summary,
+        todos:    newTodos,
       );
     });
     _autoSaveWeek();
@@ -223,79 +426,45 @@ class _DashboardScreenState extends State<DashboardScreen>
     final uid = AuthService.currentUid;
     if (uid == null || _recommendations == null) return;
     await DatabaseService.saveWeekData(
-      uid: uid,
-      weekNumber: _weekNumber,
+      uid:             uid,
+      weekNumber:      _weekNumber,
       recommendations: _recommendations!,
-      expEarned: _computeWeeklyExp(_recommendations!),
+      expEarned:       _computeWeeklyExp(_recommendations!),
+      weekStart:       _weekStart,
     );
-  }
-
-  void _resetWeek() {
-    if (_recommendations == null) return;
-
-    final prevLevel = _levelFromExp(_totalExp);
-    final gained    = _computeWeeklyExp(_recommendations!);
-
-    setState(() {
-      _lastGained = gained;
-      _totalExp  += gained;
-      _weekNumber++;
-
-      // Reset all day states to neutral
-      _recommendations = _recommendations!.map((rec) {
-        return AIRecommendation(
-          category: rec.category,
-          title: rec.title,
-          summary: rec.summary,
-          todos: rec.todos.map((todo) =>
-            TodoItem(task: todo.task, detail: todo.detail)
-          ).toList(),
-        );
-      }).toList();
-    });
-
-    // Persist to Firestore
-    final uid = AuthService.currentUid;
-    if (uid != null) {
-      DatabaseService.updateExpAndWeek(uid: uid, totalExp: _totalExp, weekNumber: _weekNumber);
-      DatabaseService.saveWeekData(
-        uid: uid,
-        weekNumber: _weekNumber,
-        recommendations: _recommendations!,
-        expEarned: 0, // fresh week
-      );
-    }
-
-    // Burst animation for EXP gained
-    _expBurstCtrl.forward(from: 0);
-
-    // Level-up animation if level changed
-    final newLevel = _levelFromExp(_totalExp);
-    if (newLevel > prevLevel) {
-      setState(() { _showLevelUp = true; _levelUpTo = newLevel; });
-      _levelUpCtrl.forward(from: 0).then((_) {
-        Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) setState(() => _showLevelUp = false);
-        });
-      });
-    }
   }
 
   Map<String, dynamic> _categoryConfig(String category) {
     switch (category) {
       case 'nutrition':
-        return {'icon': Icons.restaurant_menu_rounded, 'color': const Color(0xFFE8F4F8), 'iconColor': const Color(0xFF2196F3), 'accentColor': const Color(0xFF2196F3)};
+        return {
+          'icon':        Icons.restaurant_menu_rounded,
+          'color':       const Color(0xFFE8F4F8),
+          'iconColor':   const Color(0xFF2196F3),
+          'accentColor': const Color(0xFF2196F3),
+        };
       case 'exercise':
-        return {'icon': Icons.fitness_center_rounded, 'color': const Color(0xFFF0F8E8), 'iconColor': const Color(0xFF4CAF50), 'accentColor': const Color(0xFF4CAF50)};
+        return {
+          'icon':        Icons.fitness_center_rounded,
+          'color':       const Color(0xFFF0F8E8),
+          'iconColor':   const Color(0xFF4CAF50),
+          'accentColor': const Color(0xFF4CAF50),
+        };
       case 'sleep':
       default:
-        return {'icon': Icons.bedtime_rounded, 'color': const Color(0xFFF3EEF8), 'iconColor': const Color(0xFF9C27B0), 'accentColor': const Color(0xFF9C27B0)};
+        return {
+          'icon':        Icons.bedtime_rounded,
+          'color':       const Color(0xFFF3EEF8),
+          'iconColor':   const Color(0xFF9C27B0),
+          'accentColor': const Color(0xFF9C27B0),
+        };
     }
   }
 
-  Widget _buildRecommendationsList() {
+  Widget _buildRecommendationsList(bool isDark) {
     if (_isLoading) {
-      return Column(children: List.generate(3, (_) => const _SkeletonCard()));
+      return Column(
+          children: List.generate(3, (_) => const _SkeletonCard()));
     }
     if (_error != null) {
       return Container(
@@ -309,15 +478,19 @@ class _DashboardScreenState extends State<DashboardScreen>
           children: [
             Icon(Icons.wifi_off_rounded, color: Colors.red.shade300, size: 36),
             const SizedBox(height: 12),
-            Text('Could not load recommendations.\nPlease check your connection and try again.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.red.shade700, fontSize: 14)),
+            Text(
+              'Could not load recommendations.\nPlease check your connection and try again.',
+              textAlign: TextAlign.center,
+              style:
+                  TextStyle(color: Colors.red.shade700, fontSize: 14),
+            ),
             const SizedBox(height: 14),
             TextButton.icon(
               onPressed: _fetchRecommendations,
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Retry'),
-              style: TextButton.styleFrom(foregroundColor: const Color(0xFF1A1A2E)),
+              style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF1A1A2E)),
             ),
           ],
         ),
@@ -326,17 +499,18 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     return Column(
       children: List.generate(_recommendations!.length, (recIndex) {
-        final rec = _recommendations![recIndex];
+        final rec    = _recommendations![recIndex];
         final config = _categoryConfig(rec.category);
         return _RecommendationSection(
-          rec: rec,
-          recIndex: recIndex,
-          icon: config['icon'] as IconData,
-          bgColor: config['color'] as Color,
-          iconColor: config['iconColor'] as Color,
+          rec:         rec,
+          recIndex:    recIndex,
+          icon:        config['icon'] as IconData,
+          bgColor:     config['color'] as Color,
+          iconColor:   config['iconColor'] as Color,
           accentColor: config['accentColor'] as Color,
           onToggleDay: _toggleDay,
-          todayIndex: _todayIndex(),
+          todayIndex:  _todayIndex(),
+          isDark:      isDark,
         );
       }),
     );
@@ -347,71 +521,107 @@ class _DashboardScreenState extends State<DashboardScreen>
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(width: 40, height: 4,
-                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
-            const SizedBox(height: 20),
-            CircleAvatar(radius: 28, backgroundColor: const Color(0xFF1A1A2E),
-                child: Text(
-                  (user?.displayName ?? 'U')[0].toUpperCase(),
-                  style: const TextStyle(fontSize: 22, color: Colors.white, fontWeight: FontWeight.w700),
-                )),
-            const SizedBox(height: 12),
-            Text(user?.displayName ?? 'User',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E))),
-            Text(user?.email ?? '',
-                style: TextStyle(fontSize: 13, color: Colors.grey[500])),
-            const SizedBox(height: 24),
-            Divider(color: Colors.grey[100]),
-            const SizedBox(height: 12),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Container(width: 40, height: 40,
-                  decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(10)),
-                  child: Icon(Icons.logout_rounded, color: Colors.red.shade400, size: 20)),
-              title: Text('Sign Out',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.red.shade400)),
-              onTap: () async {
-                Navigator.pop(context);
-                await AuthService.signOut();
-                if (context.mounted) {
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const WelcomeScreen()),
-                    (route) => false,
-                  );
-                }
-              },
-            ),
-          ],
-        ),
-      ),
+      builder: (_) {
+        final isDark  = Theme.of(context).brightness == Brightness.dark;
+        final cardCol = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+        return Container(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+          decoration:
+              BoxDecoration(color: cardCol, borderRadius: BorderRadius.circular(24)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2))),
+              const SizedBox(height: 20),
+              CircleAvatar(
+                  radius: 28,
+                  backgroundColor: const Color(0xFF1A1A2E),
+                  child: Text(
+                    (user?.displayName ?? 'U')[0].toUpperCase(),
+                    style: const TextStyle(
+                        fontSize: 22,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700),
+                  )),
+              const SizedBox(height: 12),
+              Text(user?.displayName ?? 'User',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : const Color(0xFF1A1A2E))),
+              Text(user?.email ?? '',
+                  style: TextStyle(fontSize: 13, color: Colors.grey[500])),
+              const SizedBox(height: 24),
+              Divider(color: Colors.grey[100]),
+              const SizedBox(height: 12),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                    width: 40, height: 40,
+                    decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(10)),
+                    child: Icon(Icons.logout_rounded,
+                        color: Colors.red.shade400, size: 20)),
+                title: Text('Sign Out',
+                    style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.red.shade400)),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await AuthService.signOut();
+                  if (context.mounted) {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                          builder: (_) => const WelcomeScreen()),
+                      (route) => false,
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark      = Theme.of(context).brightness == Brightness.dark;
+    final bgColor     = isDark ? const Color(0xFF0F0F1A) : const Color(0xFFF7F8FA);
+    final cardColor   = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+    final txtColor    = isDark ? Colors.white : const Color(0xFF1A1A2E);
+    final subColor    = isDark ? Colors.grey[400]! : Colors.grey[500]!;
+
     final currentLevel = _levelFromExp(_totalExp);
     final expInLevel   = _expIntoLevel(_totalExp);
     final expProgress  = expInLevel / _expNeededForCurrentLevel(_totalExp);
     final rank         = _rankLabel(currentLevel);
     final rankColor    = _rankColor(currentLevel);
 
-    // Live preview of what this week will earn (before reset)
-    final previewExp  = _recommendations != null ? _computeWeeklyExp(_recommendations!) : 0;
-    final todayIndex  = _todayIndex();
+    final today         = _todayIndex();
+    final todayClaimed  = _claimedDays.contains(today);
+    final todayExp      = _recommendations != null
+        ? _computeDayExp(_recommendations!, today)
+        : 0;
 
-    // Shared bottom nav bar widget
+    // Bottom nav
     Widget bottomNav = Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06),
-            blurRadius: 12, offset: const Offset(0, -3))],
+        color: cardColor,
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 12,
+              offset: const Offset(0, -3))
+        ],
       ),
       child: SafeArea(
         top: false,
@@ -420,14 +630,30 @@ class _DashboardScreenState extends State<DashboardScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _NavItem(icon: Icons.home_rounded, label: 'Home',
-                  selected: _selectedIndex == 0, onTap: () => setState(() => _selectedIndex = 0)),
-              _NavItem(icon: Icons.people_rounded, label: 'Friends',
-                  selected: _selectedIndex == 1, onTap: () => setState(() => _selectedIndex = 1)),
-              _NavItem(icon: Icons.leaderboard_rounded, label: 'Ranking',
-                  selected: _selectedIndex == 2, onTap: () => setState(() => _selectedIndex = 2)),
-              _NavItem(icon: Icons.person_rounded, label: 'Profile',
-                  selected: _selectedIndex == 3, onTap: () => setState(() => _selectedIndex = 3)),
+              _NavItem(
+                  icon: Icons.home_rounded,
+                  label: 'Home',
+                  selected: _selectedIndex == 0,
+                  onTap: () => setState(() => _selectedIndex = 0),
+                  isDark: isDark),
+              _NavItem(
+                  icon: Icons.people_rounded,
+                  label: 'Friends',
+                  selected: _selectedIndex == 1,
+                  onTap: () => setState(() => _selectedIndex = 1),
+                  isDark: isDark),
+              _NavItem(
+                  icon: Icons.leaderboard_rounded,
+                  label: 'Ranking',
+                  selected: _selectedIndex == 2,
+                  onTap: () => setState(() => _selectedIndex = 2),
+                  isDark: isDark),
+              _NavItem(
+                  icon: Icons.person_rounded,
+                  label: 'Profile',
+                  selected: _selectedIndex == 3,
+                  onTap: () => setState(() => _selectedIndex = 3),
+                  isDark: isDark),
             ],
           ),
         ),
@@ -437,149 +663,204 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Stack(
       children: [
         Scaffold(
-          backgroundColor: const Color(0xFFF7F8FA),
+          backgroundColor: bgColor,
           bottomNavigationBar: bottomNav,
           body: IndexedStack(
             index: _selectedIndex,
             children: [
               // ── Tab 0: Home ───────────────────────────
               SafeArea(
-            child: Column(
-              children: [
-                // ── Header ──────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Evexia',
-                          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800,
-                              color: Color(0xFF1A1A2E), letterSpacing: 0.5)),
-                      GestureDetector(
-                        onTap: () => _showProfileMenu(context),
-                        child: Container(
-                          width: 38, height: 38,
-                          decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.grey[200]),
-                          child: const Icon(Icons.person_outline, color: Color(0xFF1A1A2E), size: 20),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 8),
-
-                        // ── EXP / Level Card ─────────────────
-                        _ExpCard(
-                          level: currentLevel,
-                          expInLevel: expInLevel,
-                          expProgress: expProgress,
-                          rank: rank,
-                          rankColor: rankColor,
-                          totalExp: _totalExp,
-                          weekNumber: _weekNumber,
-                          previewExp: previewExp,
-                          expBurstAnim: _expBurstAnim,
-                          lastGained: _lastGained,
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        // ── Survey chips ─────────────────────
-                        Wrap(
-                          spacing: 8, runSpacing: 8,
-                          children: [
-                            _SurveyChip(label: widget.userProfile.activityLevel, icon: Icons.directions_run_rounded),
-                            _SurveyChip(label: widget.userProfile.sleepHours, icon: Icons.bedtime_rounded),
-                            ...widget.userProfile.primaryGoals.map(
-                                (g) => _SurveyChip(label: g, icon: Icons.track_changes_rounded)),
-                          ],
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        // ── Recommendations header + reset ───
-                        Row(
-                          children: [
-                            const Text('Your Weekly Plan',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E))),
-                            const Spacer(),
-                            if (_isLoading)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                child: Column(
+                  children: [
+                    // ── Header ───────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                      child: Row(
+                        children: [
+                          Text('Evexia',
+                              style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w800,
+                                  color: txtColor,
+                                  letterSpacing: 0.5)),
+                          const Spacer(),
+                          // Dark mode toggle
+                          ValueListenableBuilder<ThemeMode>(
+                            valueListenable: themeNotifier,
+                            builder: (_, mode, __) => GestureDetector(
+                              onTap: () => themeNotifier.toggle(),
+                              child: Container(
+                                width: 38, height: 38,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF1A1A2E).withValues(alpha: 0.08),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    SizedBox(
-                                      width: 10, height: 10,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 1.5, color: const Color(0xFF1A1A2E).withValues(alpha: 0.6)),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(_loadingStatus,
-                                        style: TextStyle(fontSize: 11,
-                                            color: const Color(0xFF1A1A2E).withValues(alpha: 0.6), fontWeight: FontWeight.w500)),
-                                  ],
+                                    shape: BoxShape.circle,
+                                    color: isDark
+                                        ? const Color(0xFF2A2A3E)
+                                        : Colors.grey[200]),
+                                child: Icon(
+                                  mode == ThemeMode.dark
+                                      ? Icons.light_mode_rounded
+                                      : Icons.dark_mode_rounded,
+                                  color: isDark
+                                      ? Colors.amber
+                                      : const Color(0xFF1A1A2E),
+                                  size: 20,
                                 ),
                               ),
-                            if (!_isLoading && _error == null) ...[
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.auto_awesome, size: 11, color: Color(0xFF4CAF50)),
-                                    SizedBox(width: 4),
-                                    Text('AI powered',
-                                        style: TextStyle(fontSize: 11, color: Color(0xFF4CAF50), fontWeight: FontWeight.w600)),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-
-                        const SizedBox(height: 6),
-                        Text('Tap a day circle to mark it done.',
-                            style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-                        const SizedBox(height: 14),
-
-                        _buildRecommendationsList(),
-
-                        // ── Reset week button ────────────────
-                        if (!_isLoading && _error == null) ...[
-                          const SizedBox(height: 8),
-                          _ResetWeekButton(
-                            previewExp: previewExp,
-                            weekNumber: _weekNumber,
-                            todayIndex: _todayIndex(),
-                            onReset: _resetWeek,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Profile avatar
+                          GestureDetector(
+                            onTap: () => _showProfileMenu(context),
+                            child: Container(
+                              width: 38, height: 38,
+                              decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isDark
+                                      ? const Color(0xFF2A2A3E)
+                                      : Colors.grey[200]),
+                              child: Icon(Icons.person_outline,
+                                  color: txtColor, size: 20),
+                            ),
                           ),
                         ],
-
-                        const SizedBox(height: 32),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
 
-              ],
-            ),
-          ), // closes home SafeArea
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 8),
+
+                            // ── EXP Card ──────────────────────
+                            _ExpCard(
+                              level:       currentLevel,
+                              expInLevel:  expInLevel,
+                              expProgress: expProgress,
+                              rank:        rank,
+                              rankColor:   rankColor,
+                              totalExp:    _totalExp,
+                              weekNumber:  _weekNumber,
+                              expBurstAnim: _expBurstAnim,
+                              lastGained:  _lastGained,
+                            ),
+
+                            const SizedBox(height: 20),
+
+                            // ── Survey chips ───────────────────
+                            Wrap(
+                              spacing: 8, runSpacing: 8,
+                              children: [
+                                _SurveyChip(
+                                    label: widget.userProfile.activityLevel,
+                                    icon: Icons.directions_run_rounded,
+                                    isDark: isDark),
+                                _SurveyChip(
+                                    label: widget.userProfile.sleepHours,
+                                    icon: Icons.bedtime_rounded,
+                                    isDark: isDark),
+                                ...widget.userProfile.primaryGoals.map(
+                                    (g) => _SurveyChip(
+                                        label: g,
+                                        icon: Icons.track_changes_rounded,
+                                        isDark: isDark)),
+                              ],
+                            ),
+
+                            const SizedBox(height: 20),
+
+                            // ── Weekly Plan header ─────────────
+                            Row(
+                              children: [
+                                Text('Your Weekly Plan',
+                                    style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: txtColor)),
+                                const Spacer(),
+                                if (_isLoading)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: txtColor.withOpacity(0.08),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        SizedBox(
+                                          width: 10, height: 10,
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 1.5,
+                                              color: txtColor.withOpacity(0.6)),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(_loadingStatus,
+                                            style: TextStyle(
+                                                fontSize: 11,
+                                                color: txtColor.withOpacity(0.6),
+                                                fontWeight: FontWeight.w500)),
+                                      ],
+                                    ),
+                                  ),
+                                if (!_isLoading && _error == null)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF4CAF50)
+                                          .withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.auto_awesome,
+                                            size: 11,
+                                            color: Color(0xFF4CAF50)),
+                                        SizedBox(width: 4),
+                                        Text('AI powered',
+                                            style: TextStyle(
+                                                fontSize: 11,
+                                                color: Color(0xFF4CAF50),
+                                                fontWeight: FontWeight.w600)),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 6),
+                            Text('Tap a day circle to mark done or missed.',
+                                style: TextStyle(
+                                    fontSize: 12, color: subColor)),
+                            const SizedBox(height: 14),
+
+                            _buildRecommendationsList(isDark),
+
+                            // ── Claim Today button ─────────────
+                            if (!_isLoading && _error == null) ...[
+                              const SizedBox(height: 8),
+                              _ClaimDayButton(
+                                todayIndex:   today,
+                                todayExp:     todayExp,
+                                alreadyClaimed: todayClaimed,
+                                onClaim:      _claimDay,
+                              ),
+                            ],
+
+                            const SizedBox(height: 32),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
               // ── Tab 1: Friends ────────────────────────
               const FriendsScreen(),
@@ -596,52 +877,117 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
         ),
 
+        // ── "New tasks this week!" overlay ────────────
+        if (_showNewWeek)
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 70,
+            left: 20, right: 20,
+            child: ScaleTransition(
+              scale: _newWeekAnim,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 24, vertical: 16),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1A1A2E), Color(0xFF4A90D9)],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withOpacity(0.25),
+                        blurRadius: 20)
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    const Text('🎯', style: TextStyle(fontSize: 28)),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('New tasks for this week!',
+                              style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white)),
+                          const SizedBox(height: 2),
+                          Text('Week $_weekNumber starts now. Let\'s go! 🚀',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white.withOpacity(0.75))),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
         // ── Level-up overlay ─────────────────────────
         if (_showLevelUp)
           Positioned.fill(
             child: GestureDetector(
               onTap: () => setState(() => _showLevelUp = false),
               child: Container(
-                color: Colors.black.withValues(alpha: 0.55),
+                color: Colors.black.withOpacity(0.55),
                 child: Center(
                   child: ScaleTransition(
                     scale: _levelUpAnim,
                     child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 40),
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 36),
+                      margin:
+                          const EdgeInsets.symmetric(horizontal: 40),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 32, vertical: 36),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: isDark
+                            ? const Color(0xFF1E1E2E)
+                            : Colors.white,
                         borderRadius: BorderRadius.circular(28),
-                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 40)],
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 40)
+                        ],
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text('🎉', style: TextStyle(fontSize: 56)),
+                          const Text('🎉',
+                              style: TextStyle(fontSize: 56)),
                           const SizedBox(height: 12),
                           const Text('LEVEL UP!',
-                              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900,
-                                  color: Color(0xFF1A1A2E), letterSpacing: 2)),
+                              style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF1A1A2E),
+                                  letterSpacing: 2)),
                           const SizedBox(height: 8),
                           Text('You reached Level $_levelUpTo',
-                              style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                              style: TextStyle(
+                                  fontSize: 16, color: Colors.grey[600])),
                           const SizedBox(height: 12),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20, vertical: 8),
                             decoration: BoxDecoration(
-                              color: _rankColor(_levelUpTo).withValues(alpha: 0.12),
+                              color: _rankColor(_levelUpTo)
+                                  .withOpacity(0.12),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
                               '${_rankLabel(_levelUpTo)} Rank',
                               style: TextStyle(
-                                  fontSize: 15, fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
                                   color: _rankColor(_levelUpTo)),
                             ),
                           ),
                           const SizedBox(height: 20),
                           Text('Tap anywhere to continue',
-                              style: TextStyle(fontSize: 12, color: Colors.grey[400])),
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey[400])),
                         ],
                       ),
                     ),
@@ -651,6 +997,256 @@ class _DashboardScreenState extends State<DashboardScreen>
             ),
           ),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// Week Report Modal (bottom sheet shown at week end)
+// ─────────────────────────────────────────────────────────
+class _WeekReportModal extends StatelessWidget {
+  final int weekNumber;
+  final int totalTasks;
+  final int doneTasks;
+  final int missedTasks;
+  final int expEarned;
+  final String commendation;
+
+  const _WeekReportModal({
+    required this.weekNumber,
+    required this.totalTasks,
+    required this.doneTasks,
+    required this.missedTasks,
+    required this.expEarned,
+    required this.commendation,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark   = Theme.of(context).brightness == Brightness.dark;
+    final cardCol  = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+    final txtColor = isDark ? Colors.white : const Color(0xFF1A1A2E);
+    final pct      = totalTasks > 0 ? doneTasks / totalTasks : 0.0;
+    final pctStr   = '${(pct * 100).round()}%';
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 36),
+      decoration: BoxDecoration(
+          color: cardCol, borderRadius: BorderRadius.circular(28)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 20),
+
+          const Text('📊', style: TextStyle(fontSize: 48)),
+          const SizedBox(height: 8),
+          Text('Week $weekNumber Wrap-Up',
+              style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: txtColor)),
+          const SizedBox(height: 20),
+
+          // Stats row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _ReportStat(
+                  emoji: '✅',
+                  value: '$doneTasks',
+                  label: 'Completed',
+                  color: const Color(0xFF4CAF50)),
+              _ReportStat(
+                  emoji: '❌',
+                  value: '$missedTasks',
+                  label: 'Missed',
+                  color: Colors.red.shade400),
+              _ReportStat(
+                  emoji: '⚡',
+                  value: '+$expEarned',
+                  label: 'EXP',
+                  color: const Color(0xFFFFC107)),
+              _ReportStat(
+                  emoji: '🎯',
+                  value: pctStr,
+                  label: 'Rate',
+                  color: const Color(0xFF2196F3)),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // Completion bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: pct,
+              minHeight: 10,
+              backgroundColor: Colors.grey[200],
+              valueColor: AlwaysStoppedAnimation<Color>(
+                pct >= 0.8
+                    ? const Color(0xFF4CAF50)
+                    : pct >= 0.5
+                        ? const Color(0xFFFFC107)
+                        : Colors.red.shade400,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Commendation
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A2E).withOpacity(0.06),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              commendation,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: txtColor,
+                  height: 1.5),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1A1A2E),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
+              ),
+              child: const Text('Start New Week 🚀',
+                  style: TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportStat extends StatelessWidget {
+  final String emoji;
+  final String value;
+  final String label;
+  final Color color;
+
+  const _ReportStat({
+    required this.emoji,
+    required this.value,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(emoji, style: const TextStyle(fontSize: 22)),
+        const SizedBox(height: 4),
+        Text(value,
+            style: TextStyle(
+                fontSize: 17, fontWeight: FontWeight.w800, color: color)),
+        Text(label,
+            style:
+                TextStyle(fontSize: 10, color: Colors.grey[500])),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// Claim Day Button
+// ─────────────────────────────────────────────────────────
+class _ClaimDayButton extends StatelessWidget {
+  final int todayIndex;
+  final int todayExp;
+  final bool alreadyClaimed;
+  final VoidCallback onClaim;
+
+  const _ClaimDayButton({
+    required this.todayIndex,
+    required this.todayExp,
+    required this.alreadyClaimed,
+    required this.onClaim,
+  });
+
+  static const _dayNames = [
+    'Monday', 'Tuesday', 'Wednesday', 'Thursday',
+    'Friday', 'Saturday', 'Sunday'
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final dayName = _dayNames[todayIndex];
+
+    if (alreadyClaimed) {
+      return Container(
+        width: double.infinity,
+        height: 52,
+        decoration: BoxDecoration(
+          color: const Color(0xFF4CAF50).withOpacity(0.1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF4CAF50).withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.check_circle_rounded,
+                color: Color(0xFF4CAF50), size: 20),
+            const SizedBox(width: 8),
+            Text("$dayName's EXP claimed!",
+                style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF4CAF50))),
+          ],
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: ElevatedButton.icon(
+        onPressed: todayExp > 0 ? onClaim : null,
+        icon: const Icon(Icons.bolt_rounded, size: 18),
+        label: Text(
+          todayExp > 0
+              ? 'Claim $dayName (+$todayExp EXP)'
+              : 'Mark tasks first to claim EXP',
+          style: const TextStyle(
+              fontSize: 15, fontWeight: FontWeight.w700),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF1A1A2E),
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: Colors.grey[300],
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14)),
+          elevation: 0,
+        ),
+      ),
     );
   }
 }
@@ -666,7 +1262,6 @@ class _ExpCard extends StatelessWidget {
   final Color rankColor;
   final int totalExp;
   final int weekNumber;
-  final int previewExp;
   final Animation<double> expBurstAnim;
   final int lastGained;
 
@@ -678,7 +1273,6 @@ class _ExpCard extends StatelessWidget {
     required this.rankColor,
     required this.totalExp,
     required this.weekNumber,
-    required this.previewExp,
     required this.expBurstAnim,
     required this.lastGained,
   });
@@ -690,33 +1284,47 @@ class _ExpCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [const Color(0xFF1A1A2E), rankColor.withValues(alpha: 0.85)],
+          colors: [
+            const Color(0xFF1A1A2E),
+            rankColor.withOpacity(0.85)
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(22),
-        boxShadow: [BoxShadow(color: rankColor.withValues(alpha: 0.35), blurRadius: 20, offset: const Offset(0, 6))],
+        boxShadow: [
+          BoxShadow(
+              color: rankColor.withOpacity(0.35),
+              blurRadius: 20,
+              offset: const Offset(0, 6))
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top row: level badge + rank + week
           Row(
             children: [
-              // Level badge
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
+                  color: Colors.white.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Column(
                   children: [
                     Text('LVL',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
-                            color: Colors.white.withValues(alpha: 0.7), letterSpacing: 1.5)),
+                        style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white.withOpacity(0.7),
+                            letterSpacing: 1.5)),
                     Text('$level',
-                        style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Colors.white, height: 1.1)),
+                        style: const TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            height: 1.1)),
                   ],
                 ),
               ),
@@ -725,26 +1333,35 @@ class _ExpCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Rank badge
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: rankColor.withValues(alpha: 0.25),
+                        color: rankColor.withOpacity(0.25),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: rankColor.withValues(alpha: 0.5), width: 1),
+                        border: Border.all(
+                            color: rankColor.withOpacity(0.5), width: 1),
                       ),
                       child: Text('⭐ $rank',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
+                          style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white)),
                     ),
                     const SizedBox(height: 6),
                     Text('$totalExp total EXP',
-                        style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.8), fontWeight: FontWeight.w500)),
+                        style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.white.withOpacity(0.8),
+                            fontWeight: FontWeight.w500)),
                     Text('Week $weekNumber',
-                        style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5))),
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.white.withOpacity(0.5))),
                   ],
                 ),
               ),
-              // Animated EXP gained burst
+              // EXP burst animation
               AnimatedBuilder(
                 animation: expBurstAnim,
                 builder: (_, __) {
@@ -754,13 +1371,17 @@ class _ExpCard extends StatelessWidget {
                     child: Transform.translate(
                       offset: Offset(0, -30 * expBurstAnim.value),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
+                          color: Colors.white.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text('+$lastGained EXP',
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white)),
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white)),
                       ),
                     ),
                   );
@@ -771,14 +1392,17 @@ class _ExpCard extends StatelessWidget {
 
           const SizedBox(height: 18),
 
-          // EXP progress bar
           Row(
             children: [
               Text('$expInLevel',
-                  style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7), fontWeight: FontWeight.w600)),
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.white.withOpacity(0.7),
+                      fontWeight: FontWeight.w600)),
               const Spacer(),
               Text('${_expNeededForCurrentLevel(totalExp)} EXP to next level',
-                  style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.6))),
+                  style: TextStyle(
+                      fontSize: 11, color: Colors.white.withOpacity(0.6))),
             ],
           ),
           const SizedBox(height: 6),
@@ -787,155 +1411,14 @@ class _ExpCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: expProgress,
               minHeight: 10,
-              backgroundColor: Colors.white.withValues(alpha: 0.15),
-              valueColor: AlwaysStoppedAnimation<Color>(rankColor == const Color(0xFFCD7F32)
-                  ? Colors.amber.shade300
-                  : Colors.white),
+              backgroundColor: Colors.white.withOpacity(0.15),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                  rankColor == const Color(0xFFCD7F32)
+                      ? Colors.amber.shade300
+                      : Colors.white),
             ),
           ),
-
-          // This week preview
-          if (previewExp > 0) ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(Icons.bolt_rounded, size: 14, color: Colors.amber.shade300),
-                const SizedBox(width: 4),
-                Text('This week: +$previewExp EXP pending — available to claim on Sunday',
-                    style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.7))),
-              ],
-            ),
-          ],
         ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────
-// Reset Week button
-// ─────────────────────────────────────────────────────────
-class _ResetWeekButton extends StatelessWidget {
-  final int previewExp;
-  final int weekNumber;
-  final VoidCallback onReset;
-  final int todayIndex;
-
-  const _ResetWeekButton({
-    required this.previewExp,
-    required this.weekNumber,
-    required this.onReset,
-    required this.todayIndex,
-  });
-
-  void _confirmReset(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40, height: 4,
-              decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
-            ),
-            const SizedBox(height: 20),
-            const Text('🔄', style: TextStyle(fontSize: 42)),
-            const SizedBox(height: 12),
-            const Text('End Week & Claim EXP?',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF1A1A2E))),
-            const SizedBox(height: 8),
-            Text(
-              previewExp > 0
-                  ? 'You\'ll earn $previewExp EXP for this week\'s effort.\nAll task trackers will reset for Week ${weekNumber + 1}.'
-                  : 'No tasks were completed this week.\nAll task trackers will reset for Week ${weekNumber + 1}.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.grey[600], height: 1.5),
-            ),
-            if (previewExp > 0) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.bolt_rounded, color: Color(0xFF4CAF50), size: 18),
-                    const SizedBox(width: 6),
-                    Text('+$previewExp EXP',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF4CAF50))),
-                  ],
-                ),
-              ),
-            ],
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.grey[600],
-                      side: BorderSide(color: Colors.grey[300]!),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      onReset();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1A1A2E),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      elevation: 0,
-                    ),
-                    child: const Text('Claim & Reset', style: TextStyle(fontWeight: FontWeight.w700)),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: ElevatedButton.icon(
-        onPressed: () => _confirmReset(context),
-        icon: const Icon(Icons.refresh_rounded, size: 18),
-        label: Text(
-          previewExp > 0 ? 'Reset Week  (+$previewExp EXP)' : 'Reset Week',
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF1A1A2E),
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          elevation: 0,
-        ),
       ),
     );
   }
@@ -951,8 +1434,10 @@ class _RecommendationSection extends StatefulWidget {
   final Color bgColor;
   final Color iconColor;
   final Color accentColor;
-  final void Function(int recIndex, int todoIndex, int dayIndex, DayState current) onToggleDay;
+  final void Function(int recIndex, int todoIndex, int dayIndex, DayState current)
+      onToggleDay;
   final int todayIndex;
+  final bool isDark;
 
   const _RecommendationSection({
     required this.rec,
@@ -963,36 +1448,52 @@ class _RecommendationSection extends StatefulWidget {
     required this.accentColor,
     required this.onToggleDay,
     required this.todayIndex,
+    required this.isDark,
   });
 
   @override
-  State<_RecommendationSection> createState() => _RecommendationSectionState();
+  State<_RecommendationSection> createState() =>
+      _RecommendationSectionState();
 }
 
-class _RecommendationSectionState extends State<_RecommendationSection> {
+class _RecommendationSectionState
+    extends State<_RecommendationSection> {
   bool _expanded = true;
 
   @override
   Widget build(BuildContext context) {
-    final doneCount = widget.rec.todos
+    final cardColor = widget.isDark
+        ? const Color(0xFF1E1E2E)
+        : Colors.white;
+    final txtColor = widget.isDark ? Colors.white : const Color(0xFF1A1A2E);
+
+    final doneCount  = widget.rec.todos
         .expand((t) => t.days)
         .where((d) => d == DayState.done)
         .length;
     final totalCount = widget.rec.todos.length * 7;
-    final progress = totalCount > 0 ? doneCount / totalCount : 0.0;
+    final progress   = totalCount > 0 ? doneCount / totalCount : 0.0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 14, offset: const Offset(0, 4))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black
+                  .withOpacity(widget.isDark ? 0.3 : 0.06),
+              blurRadius: 14,
+              offset: const Offset(0, 4))
+        ],
       ),
       child: Column(
         children: [
           InkWell(
-            onTap: () => setState(() => _expanded = !_expanded),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            onTap: () =>
+                setState(() => _expanded = !_expanded),
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(20)),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
               child: Column(
@@ -1001,27 +1502,41 @@ class _RecommendationSectionState extends State<_RecommendationSection> {
                     children: [
                       Container(
                         width: 44, height: 44,
-                        decoration: BoxDecoration(color: widget.bgColor, borderRadius: BorderRadius.circular(12)),
-                        child: Icon(widget.icon, color: widget.iconColor, size: 22),
+                        decoration: BoxDecoration(
+                            color: widget.bgColor,
+                            borderRadius: BorderRadius.circular(12)),
+                        child: Icon(widget.icon,
+                            color: widget.iconColor, size: 22),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
                           children: [
                             Text(widget.rec.title,
-                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E))),
+                                style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: txtColor)),
                             const SizedBox(height: 2),
                             Text(widget.rec.summary,
-                                style: TextStyle(fontSize: 12, color: Colors.grey[600], height: 1.3)),
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                    height: 1.3)),
                           ],
                         ),
                       ),
                       const SizedBox(width: 8),
                       AnimatedRotation(
                         turns: _expanded ? 0.25 : 0,
-                        duration: const Duration(milliseconds: 250),
-                        child: Icon(Icons.arrow_forward_ios_rounded, size: 13, color: Colors.grey[400]),
+                        duration:
+                            const Duration(milliseconds: 250),
+                        child: Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            size: 13,
+                            color: Colors.grey[400]),
                       ),
                     ],
                   ),
@@ -1032,15 +1547,20 @@ class _RecommendationSectionState extends State<_RecommendationSection> {
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(4),
                           child: LinearProgressIndicator(
-                            value: progress, minHeight: 6,
+                            value: progress,
+                            minHeight: 6,
                             backgroundColor: Colors.grey[100],
-                            valueColor: AlwaysStoppedAnimation<Color>(widget.accentColor),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                widget.accentColor),
                           ),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Text('$doneCount/$totalCount',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: widget.accentColor)),
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: widget.accentColor)),
                     ],
                   ),
                 ],
@@ -1050,7 +1570,9 @@ class _RecommendationSectionState extends State<_RecommendationSection> {
 
           AnimatedCrossFade(
             duration: const Duration(milliseconds: 260),
-            crossFadeState: _expanded ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+            crossFadeState: _expanded
+                ? CrossFadeState.showFirst
+                : CrossFadeState.showSecond,
             firstChild: Column(
               children: [
                 Divider(height: 1, color: Colors.grey[100]),
@@ -1065,27 +1587,34 @@ class _RecommendationSectionState extends State<_RecommendationSection> {
                           width: 30,
                           child: Center(
                             child: Text(_dayLabels[i],
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: isToday ? FontWeight.w900 : FontWeight.w700,
-                                color: isToday ? widget.accentColor : Colors.grey[400],
-                              ),
-                            ),
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: isToday
+                                        ? FontWeight.w900
+                                        : FontWeight.w700,
+                                    color: isToday
+                                        ? widget.accentColor
+                                        : Colors.grey[400])),
                           ),
                         );
                       }),
                     ],
                   ),
                 ),
-                ...List.generate(widget.rec.todos.length, (todoIndex) {
+                ...List.generate(
+                    widget.rec.todos.length, (todoIndex) {
                   final todo = widget.rec.todos[todoIndex];
                   return _TodoRow(
-                    todo: todo,
+                    todo:        todo,
                     accentColor: widget.accentColor,
-                    isLast: todoIndex == widget.rec.todos.length - 1,
-                    todayIndex: widget.todayIndex,
+                    isLast:      todoIndex ==
+                        widget.rec.todos.length - 1,
+                    todayIndex:  widget.todayIndex,
+                    isDark:      widget.isDark,
                     onToggleDay: (dayIndex, current) =>
-                        widget.onToggleDay(widget.recIndex, todoIndex, dayIndex, current),
+                        widget.onToggleDay(
+                            widget.recIndex, todoIndex,
+                            dayIndex, current),
                   );
                 }),
                 const SizedBox(height: 4),
@@ -1107,6 +1636,7 @@ class _TodoRow extends StatelessWidget {
   final Color accentColor;
   final bool isLast;
   final int todayIndex;
+  final bool isDark;
   final void Function(int dayIndex, DayState current) onToggleDay;
 
   const _TodoRow({
@@ -1114,17 +1644,24 @@ class _TodoRow extends StatelessWidget {
     required this.accentColor,
     required this.isLast,
     required this.todayIndex,
+    required this.isDark,
     required this.onToggleDay,
   });
 
   @override
   Widget build(BuildContext context) {
-    final doneThisWeek   = todo.days.where((d) => d == DayState.done).length;
-    final missedThisWeek = todo.days.where((d) => d == DayState.missed).length;
+    final txtColor       = isDark ? Colors.white : const Color(0xFF1A1A2E);
+    final doneThisWeek   =
+        todo.days.where((d) => d == DayState.done).length;
+    final missedThisWeek =
+        todo.days.where((d) => d == DayState.missed).length;
 
     return Container(
       decoration: BoxDecoration(
-        border: isLast ? null : Border(bottom: BorderSide(color: Colors.grey[100]!, width: 1)),
+        border: isLast
+            ? null
+            : Border(
+                bottom: BorderSide(color: Colors.grey[100]!, width: 1)),
       ),
       padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
       child: Row(
@@ -1135,35 +1672,52 @@ class _TodoRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(todo.task,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                        color: Color(0xFF1A1A2E), height: 1.3)),
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: txtColor,
+                        height: 1.3)),
                 if (todo.detail.isNotEmpty) ...[
                   const SizedBox(height: 2),
-                  Text(todo.detail, style: TextStyle(fontSize: 11, color: Colors.grey[500], height: 1.3)),
+                  Text(todo.detail,
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey[500],
+                          height: 1.3)),
                 ],
                 const SizedBox(height: 4),
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: doneThisWeek > 0 ? accentColor.withValues(alpha: 0.1) : Colors.grey[100],
+                        color: doneThisWeek > 0
+                            ? accentColor.withOpacity(0.1)
+                            : Colors.grey[100],
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text('✓ $doneThisWeek',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
-                              color: doneThisWeek > 0 ? accentColor : Colors.grey[400])),
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: doneThisWeek > 0
+                                  ? accentColor
+                                  : Colors.grey[400])),
                     ),
                     if (missedThisWeek > 0) ...[
                       const SizedBox(width: 4),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.red.shade50,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text('✗ $missedThisWeek',
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
                                 color: Colors.red.shade400)),
                       ),
                     ],
@@ -1175,12 +1729,11 @@ class _TodoRow extends StatelessWidget {
           const SizedBox(width: 8),
           Row(
             children: List.generate(7, (dayIndex) {
-              final state      = todo.days[dayIndex];
-              final isToday    = dayIndex == todayIndex;
-              final isPast     = dayIndex < todayIndex;
-              final isFuture   = dayIndex > todayIndex;
+              final state    = todo.days[dayIndex];
+              final isToday  = dayIndex == todayIndex;
+              final isPast   = dayIndex < todayIndex;
+              final isFuture = dayIndex > todayIndex;
 
-              // Future days — always locked, no interaction
               if (isFuture) {
                 return Tooltip(
                   message: 'Not yet',
@@ -1190,14 +1743,15 @@ class _TodoRow extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: Colors.grey.shade50,
-                      border: Border.all(color: Colors.grey.shade200, width: 1.5),
+                      border: Border.all(
+                          color: Colors.grey.shade200, width: 1.5),
                     ),
-                    child: Icon(Icons.lock_outline_rounded, size: 11, color: Colors.grey.shade300),
+                    child: Icon(Icons.lock_outline_rounded,
+                        size: 11, color: Colors.grey.shade300),
                   ),
                 );
               }
 
-              // Past days — locked but show whatever state was recorded
               if (isPast) {
                 final Color bgColor;
                 final Color borderColor;
@@ -1207,16 +1761,18 @@ class _TodoRow extends StatelessWidget {
                   case DayState.done:
                     bgColor     = accentColor.withOpacity(0.7);
                     borderColor = accentColor.withOpacity(0.7);
-                    child       = const Icon(Icons.check_rounded, size: 13, color: Colors.white);
+                    child = const Icon(Icons.check_rounded,
+                        size: 13, color: Colors.white);
                   case DayState.missed:
                     bgColor     = Colors.red.shade300;
                     borderColor = Colors.red.shade300;
-                    child       = const Icon(Icons.close_rounded, size: 13, color: Colors.white);
+                    child = const Icon(Icons.close_rounded,
+                        size: 13, color: Colors.white);
                   case DayState.neutral:
-                    // Was not marked — show a muted lock
                     bgColor     = Colors.grey.shade100;
                     borderColor = Colors.grey.shade300;
-                    child       = Icon(Icons.lock_rounded, size: 11, color: Colors.grey.shade400);
+                    child = Icon(Icons.lock_rounded,
+                        size: 11, color: Colors.grey.shade400);
                 }
 
                 return Tooltip(
@@ -1228,14 +1784,15 @@ class _TodoRow extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: bgColor,
-                      border: Border.all(color: borderColor, width: 1.5),
+                      border:
+                          Border.all(color: borderColor, width: 1.5),
                     ),
                     child: Center(child: child),
                   ),
                 );
               }
 
-              // Today — fully interactive
+              // Today
               final Color bgColor;
               final Color borderColor;
               final Widget? icon;
@@ -1244,11 +1801,13 @@ class _TodoRow extends StatelessWidget {
                 case DayState.done:
                   bgColor     = accentColor;
                   borderColor = accentColor;
-                  icon        = const Icon(Icons.check_rounded, size: 13, color: Colors.white);
+                  icon = const Icon(Icons.check_rounded,
+                      size: 13, color: Colors.white);
                 case DayState.missed:
                   bgColor     = Colors.red.shade400;
                   borderColor = Colors.red.shade400;
-                  icon        = const Icon(Icons.close_rounded, size: 13, color: Colors.white);
+                  icon = const Icon(Icons.close_rounded,
+                      size: 13, color: Colors.white);
                 case DayState.neutral:
                   bgColor     = Colors.white;
                   borderColor = accentColor;
@@ -1260,14 +1819,23 @@ class _TodoRow extends StatelessWidget {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
                   width: 28, height: 28,
-                  margin: const EdgeInsets.symmetric(horizontal: 1),
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 1),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: bgColor,
-                    border: Border.all(color: borderColor, width: isToday ? 2 : 1.5),
-                    boxShadow: isToday ? [
-                      BoxShadow(color: accentColor.withOpacity(0.35), blurRadius: 6, spreadRadius: 1),
-                    ] : null,
+                    border: Border.all(
+                        color: borderColor,
+                        width: isToday ? 2 : 1.5),
+                    boxShadow: isToday
+                        ? [
+                            BoxShadow(
+                                color:
+                                    accentColor.withOpacity(0.35),
+                                blurRadius: 6,
+                                spreadRadius: 1)
+                          ]
+                        : null,
                   ),
                   child: Center(child: icon),
                 ),
@@ -1289,24 +1857,35 @@ class _SkeletonCard extends StatefulWidget {
   State<_SkeletonCard> createState() => _SkeletonCardState();
 }
 
-class _SkeletonCardState extends State<_SkeletonCard> with SingleTickerProviderStateMixin {
+class _SkeletonCardState extends State<_SkeletonCard>
+    with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _anim;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat(reverse: true);
-    _anim = Tween<double>(begin: 0.4, end: 1.0).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+    _ctrl = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 1200))
+      ..repeat(reverse: true);
+    _anim = Tween<double>(begin: 0.4, end: 1.0).animate(
+        CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
 
   @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   Widget _bar(double width, double height) => Container(
-    height: height, width: width,
-    decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(4)),
-  );
+        height: height,
+        width: width,
+        decoration: BoxDecoration(
+            color: Colors.grey[200],
+            borderRadius: BorderRadius.circular(4)),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -1320,33 +1899,64 @@ class _SkeletonCardState extends State<_SkeletonCard> with SingleTickerProviderS
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 14, offset: const Offset(0, 4))],
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 14,
+                  offset: const Offset(0, 4))
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(children: [
-                Container(width: 44, height: 44,
-                    decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(12))),
+                Container(
+                    width: 44, height: 44,
+                    decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(12))),
                 const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  _bar(140, 14), const SizedBox(height: 6), _bar(200, 11),
-                ])),
+                Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      _bar(140, 14),
+                      const SizedBox(height: 6),
+                      _bar(200, 11),
+                    ])),
               ]),
               const SizedBox(height: 14),
-              ...List.generate(3, (_) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(children: [
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    _bar(160, 12), const SizedBox(height: 4), _bar(100, 10),
-                  ])),
-                  const SizedBox(width: 8),
-                  Row(children: List.generate(7, (_) => Container(
-                    width: 28, height: 28, margin: const EdgeInsets.symmetric(horizontal: 1),
-                    decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.grey[200]),
-                  ))),
-                ]),
-              )),
+              ...List.generate(
+                  3,
+                  (_) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Row(children: [
+                          Expanded(
+                              child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                _bar(160, 12),
+                                const SizedBox(height: 4),
+                                _bar(100, 10),
+                              ])),
+                          const SizedBox(width: 8),
+                          Row(
+                              children:
+                                  List.generate(
+                                      7,
+                                      (_) => Container(
+                                            width: 28,
+                                            height: 28,
+                                            margin: const EdgeInsets
+                                                .symmetric(
+                                                horizontal: 1),
+                                            decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                color: Colors.grey[200]),
+                                          ))),
+                        ]),
+                      )),
             ],
           ),
         ),
@@ -1361,22 +1971,37 @@ class _SkeletonCardState extends State<_SkeletonCard> with SingleTickerProviderS
 class _SurveyChip extends StatelessWidget {
   final String label;
   final IconData icon;
-  const _SurveyChip({required this.label, required this.icon});
+  final bool isDark;
+  const _SurveyChip(
+      {required this.label, required this.icon, required this.isDark});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding:
+          const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2E).withValues(alpha: 0.07),
+        color: isDark
+            ? Colors.white.withOpacity(0.1)
+            : const Color(0xFF1A1A2E).withOpacity(0.07),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: const Color(0xFF1A1A2E)),
+          Icon(icon,
+              size: 13,
+              color: isDark
+                  ? Colors.white70
+                  : const Color(0xFF1A1A2E)),
           const SizedBox(width: 5),
-          Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E))),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: isDark
+                      ? Colors.white70
+                      : const Color(0xFF1A1A2E))),
         ],
       ),
     );
@@ -1391,20 +2016,38 @@ class _NavItem extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
-  const _NavItem({required this.icon, required this.label, required this.selected, required this.onTap});
+  final bool isDark;
+
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    required this.isDark,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final activeColor =
+        isDark ? Colors.white : const Color(0xFF1A1A2E);
+    final inactiveColor = Colors.grey[400]!;
+
     return GestureDetector(
       onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: selected ? const Color(0xFF1A1A2E) : Colors.grey[400], size: 24),
+          Icon(icon,
+              color: selected ? activeColor : inactiveColor,
+              size: 24),
           const SizedBox(height: 3),
-          Text(label, style: TextStyle(fontSize: 10,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-              color: selected ? const Color(0xFF1A1A2E) : Colors.grey[400])),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: selected
+                      ? FontWeight.w700
+                      : FontWeight.w400,
+                  color: selected ? activeColor : inactiveColor)),
         ],
       ),
     );
