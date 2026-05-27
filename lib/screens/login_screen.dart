@@ -5,7 +5,6 @@ import 'onboarding_screen.dart';
 import 'dashboard_screen.dart';
 import '../widgets/auth_widgets.dart';
 import 'signup_screen.dart';
-import 'package:evexia_app/providers/theme_notifier.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -76,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF1EFEE),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -85,13 +84,13 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const SizedBox(height: 60),
               IconButton(
-                icon: const Icon(Icons.arrow_back_ios, size: 18, color: Color(0xFF1A1A2E)),
+                icon: const Icon(Icons.arrow_back_ios, size: 18, color: Color(0xFF454D6E)),
                 onPressed: () => Navigator.pop(context),
                 padding: EdgeInsets.zero,
               ),
               const SizedBox(height: 24),
               const Text('Welcome back',
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Color(0xFF1A1A2E))),
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Color(0xFF454D6E))),
               const SizedBox(height: 6),
               Text('Sign in to continue your health journey.',
                   style: TextStyle(fontSize: 15, color: Colors.grey[500])),
@@ -132,7 +131,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: ElevatedButton(
                   onPressed: _loading ? null : _login,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A1A2E),
+                    backgroundColor: const Color(0xFF454D6E),
                     foregroundColor: Colors.white,
                     disabledBackgroundColor: Colors.grey[300],
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -158,7 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       children: const [
                         TextSpan(text: 'Sign up',
                             style: TextStyle(
-                                color: Color(0xFF1A1A2E), fontWeight: FontWeight.w700)),
+                                color: Color(0xFF454D6E), fontWeight: FontWeight.w700)),
                       ],
                     ),
                   ),

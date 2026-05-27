@@ -56,7 +56,7 @@ class AuthGate extends StatelessWidget {
 /// Loads saved EXP + week data from Firestore then opens DashboardScreen
 class _SavedDashboardLoader extends StatefulWidget {
   final String uid;
-  final userProfile;
+  final dynamic userProfile;
   const _SavedDashboardLoader({required this.uid, required this.userProfile});
 
   @override

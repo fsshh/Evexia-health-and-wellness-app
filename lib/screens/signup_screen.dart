@@ -111,8 +111,8 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg     = isDark ? const Color(0xFF0F0F1A) : Colors.white;
-    final txt    = isDark ? Colors.white : const Color(0xFF1A1A2E);
+    final bg     = isDark ? const Color(0xFF2A2D3E) : const Color(0xFFF1EFEE);
+    final txt    = isDark ? Colors.white : const Color(0xFF454D6E);
 
     return Scaffold(
       backgroundColor: bg,
@@ -161,8 +161,12 @@ class _SignupScreenState extends State<SignupScreen> {
                             color: Color(0xFF4CAF50), size: 20)
                         : null,
                 onChanged: (v) {
-                  if (v.length >= 3) _checkUsername(v);
-                  else setState(() => _usernameError = null);
+                  if (v.length >= 3) {
+                    _checkUsername(v);
+                  }
+                  else {
+                    setState(() => _usernameError = null);
+                  }
                 },
               ),
               if (_usernameError != null) ...[
@@ -233,7 +237,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 child: ElevatedButton(
                   onPressed: _loading ? null : _signUp,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A1A2E),
+                    backgroundColor: const Color(0xFF454D6E),
                     foregroundColor: Colors.white,
                     disabledBackgroundColor: Colors.grey[300],
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),

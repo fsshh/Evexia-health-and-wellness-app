@@ -61,7 +61,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   int _totalExpForLevel(int level) {
     int total = 0;
-    for (int i = 1; i < level; i++) total += _expForLevel(i);
+    for (int i = 1; i < level; i++) {
+      total += _expForLevel(i);
+    } 
     return total;
   }
 
@@ -89,7 +91,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Color _colorFromName(String name) {
     final colors = [
-      const Color(0xFF1A1A2E), const Color(0xFF2196F3), const Color(0xFF4CAF50),
+      const Color(0xFF454D6E), const Color(0xFF2196F3), const Color(0xFF4CAF50),
       const Color(0xFF9C27B0), const Color(0xFFFF6B35), const Color(0xFFFF9800),
     ];
     return colors[name.codeUnitAt(0) % colors.length];
@@ -107,7 +109,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF0F0F1A) : const Color(0xFFF7F8FA);
+    final bgColor = isDark ? const Color(0xFF2A2D3E) : const Color(0xFFF1EFEE);
     final user = AuthService.currentUser;
     final name = user?.displayName ?? 'User';
 
@@ -123,7 +125,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 width: double.infinity,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [const Color(0xFF1A1A2E), _rankColor.withOpacity(0.8)],
+                    colors: [const Color(0xFF454D6E), const Color(0xFFAB6470).withValues(alpha: 0.85)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -134,7 +136,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     // Avatar
                     CircleAvatar(
                       radius: 44,
-                      backgroundColor: _colorFromName(name).withOpacity(0.6),
+                      backgroundColor: _colorFromName(name).withValues(alpha: 0.6),
                       child: Text(
                         name[0].toUpperCase(),
                         style: const TextStyle(fontSize: 36, color: Colors.white, fontWeight: FontWeight.w800),
@@ -145,16 +147,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white)),
                     const SizedBox(height: 4),
                     Text(user?.email ?? '',
-                        style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.65))),
+                        style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.65))),
                     const SizedBox(height: 16),
 
                     // Rank badge
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                       decoration: BoxDecoration(
-                        color: _rankColor.withOpacity(0.25),
+                        color: _rankColor.withValues(alpha: 0.25),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: _rankColor.withOpacity(0.5)),
+                        border: Border.all(color: _rankColor.withValues(alpha: 0.5)),
                       ),
                       child: Text('⭐ $_rankLabel  •  Level $_level',
                           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
@@ -165,10 +167,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Row(
                       children: [
                         Text('$_expInLevel / $_expNeeded EXP',
-                            style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.7))),
+                            style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.7))),
                         const Spacer(),
                         Text('Next: Level ${_level + 1}',
-                            style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.6))),
+                            style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.6))),
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -177,7 +179,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: LinearProgressIndicator(
                         value: _expProgress,
                         minHeight: 8,
-                        backgroundColor: Colors.white.withOpacity(0.15),
+                        backgroundColor: Colors.white.withValues(alpha: 0.15),
                         valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
                     ),
@@ -314,13 +316,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (_) {
-        bool _resetting = false;
+        bool resetting = false;
         return StatefulBuilder(
           builder: (ctx, setLocal) => Container(
             margin: const EdgeInsets.all(16),
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A2E),
+              color: const Color(0xFF454D6E),
               borderRadius: BorderRadius.circular(24),
             ),
             child: Column(
@@ -342,9 +344,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: Colors.amber.withOpacity(0.15),
+                        color: Colors.amber.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.amber.withOpacity(0.4)),
+                        border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
                       ),
                       child: const Text('DEV',
                           style: TextStyle(
@@ -363,9 +365,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text('Testing utilities — not visible in production.',
-                    style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.4))),
+                    style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.4))),
                 const SizedBox(height: 20),
-                Divider(color: Colors.white.withOpacity(0.08)),
+                Divider(color: Colors.white.withValues(alpha: 0.08)),
                 const SizedBox(height: 16),
                 // ── Reset Week ───────────────────────────────
                 ListTile(
@@ -373,7 +375,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   leading: Container(
                     width: 44, height: 44,
                     decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.15),
+                      color: Colors.orange.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(Icons.restart_alt_rounded,
@@ -387,18 +389,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   subtitle: Text('Runs the full week-end flow now',
                       style: TextStyle(
                           fontSize: 12,
-                          color: Colors.white.withOpacity(0.45))),
-                  trailing: _resetting
+                          color: Colors.white.withValues(alpha: 0.45))),
+                  trailing: resetting
                       ? const SizedBox(
                           width: 20, height: 20,
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.orange))
                       : const Icon(Icons.chevron_right_rounded,
                           color: Colors.white38),
-                  onTap: _resetting
+                  onTap: resetting
                       ? null
                       : () async {
-                          setLocal(() => _resetting = true);
+                          setLocal(() => resetting = true);
                           Navigator.pop(ctx);
                           await widget.onDevResetWeek!();
                         },
@@ -435,8 +437,8 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark    = Theme.of(context).brightness == Brightness.dark;
-    final cardColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
-    final txtColor  = isDark ? Colors.white : const Color(0xFF1A1A2E);
+    final cardColor = isDark ? const Color(0xFF363A52) : Colors.white;
+    final txtColor  = isDark ? Colors.white : const Color(0xFF454D6E);
 
     return Expanded(
       child: Container(
@@ -444,13 +446,13 @@ class _StatCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: cardColor,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2))],
         ),
         child: Column(
           children: [
             Container(
               width: 36, height: 36,
-              decoration: BoxDecoration(color: color.withOpacity(0.12), shape: BoxShape.circle),
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.12), shape: BoxShape.circle),
               child: Icon(icon, color: color, size: 18),
             ),
             const SizedBox(height: 8),
@@ -477,8 +479,8 @@ class _Section extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark     = Theme.of(context).brightness == Brightness.dark;
-    final cardColor  = isDark ? const Color(0xFF1E1E2E) : Colors.white;
-    final titleColor = isDark ? Colors.white70 : const Color(0xFF1A1A2E);
+    final cardColor  = isDark ? const Color(0xFF363A52) : Colors.white;
+    final titleColor = isDark ? Colors.white70 : const Color(0xFF454D6E);
     final divColor   = isDark ? Colors.white12 : Colors.grey[100]!;
 
     return Padding(
@@ -494,7 +496,7 @@ class _Section extends StatelessWidget {
             decoration: BoxDecoration(
               color: cardColor,
               borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2))],
             ),
             child: Column(
               children: List.generate(children.length, (i) {
@@ -527,11 +529,11 @@ class _InfoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark   = Theme.of(context).brightness == Brightness.dark;
-    final txtColor = isDark ? Colors.white : const Color(0xFF1A1A2E);
+    final txtColor = isDark ? Colors.white : const Color(0xFF454D6E);
     final iconBg   = isDark
-        ? Colors.white.withOpacity(0.08)
-        : const Color(0xFF1A1A2E).withOpacity(0.06);
-    final iconColor = isDark ? Colors.white70 : const Color(0xFF1A1A2E);
+        ? Colors.white.withValues(alpha: 0.08)
+        : const Color(0xFF454D6E).withValues(alpha: 0.06);
+    final iconColor = isDark ? Colors.white70 : const Color(0xFF454D6E);
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),

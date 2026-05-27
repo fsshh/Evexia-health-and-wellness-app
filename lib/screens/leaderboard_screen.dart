@@ -48,8 +48,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   Widget build(BuildContext context) {
     final currentUid = AuthService.currentUid;
     final isDark  = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF0F0F1A) : const Color(0xFFF7F8FA);
-    final txtColor = isDark ? Colors.white : const Color(0xFF1A1A2E);
+    final bgColor = isDark ? const Color(0xFF2A2D3E) : const Color(0xFFF1EFEE);
+    final txtColor = isDark ? Colors.white : const Color(0xFF454D6E);
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -138,7 +138,7 @@ class _Podium extends StatelessWidget {
 
   Color _colorFromName(String name) {
     final colors = [
-      const Color(0xFF1A1A2E), const Color(0xFF2196F3), const Color(0xFF4CAF50),
+      const Color(0xFF454D6E), const Color(0xFF2196F3), const Color(0xFF4CAF50),
       const Color(0xFF9C27B0), const Color(0xFFFF6B35), const Color(0xFFFF9800),
     ];
     return colors[name.codeUnitAt(0) % colors.length];
@@ -155,7 +155,7 @@ class _Podium extends StatelessWidget {
       const Color(0xFFC0C0C0),
       const Color(0xFFCD7F32),
     ];
-    final nameColor = isDark ? Colors.white : const Color(0xFF1A1A2E);
+    final nameColor = isDark ? Colors.white : const Color(0xFF454D6E);
     final expColor  = isDark ? Colors.grey[400]! : Colors.grey[500]!;
 
     return Expanded(
@@ -165,7 +165,7 @@ class _Podium extends StatelessWidget {
           if (isMe)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(color: const Color(0xFF1A1A2E), borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(color: const Color(0xFF454D6E), borderRadius: BorderRadius.circular(8)),
               child: const Text('You', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w700)),
             ),
           const SizedBox(height: 4),
@@ -186,7 +186,7 @@ class _Podium extends StatelessWidget {
           Container(
             height: height,
             decoration: BoxDecoration(
-              color: podiumColors[position].withOpacity(0.85),
+              color: podiumColors[position].withValues(alpha: 0.85),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
             ),
             child: Center(
@@ -244,7 +244,7 @@ class _LeaderboardTile extends StatelessWidget {
 
   Color _colorFromName(String n) {
     final colors = [
-      const Color(0xFF1A1A2E), const Color(0xFF2196F3), const Color(0xFF4CAF50),
+      const Color(0xFF454D6E), const Color(0xFF2196F3), const Color(0xFF4CAF50),
       const Color(0xFF9C27B0), const Color(0xFFFF6B35), const Color(0xFFFF9800),
     ];
     return colors[n.codeUnitAt(0) % colors.length];
@@ -260,12 +260,12 @@ class _LeaderboardTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cardColor = isMe
-        ? const Color(0xFF1A1A2E)
-        : (isDark ? const Color(0xFF1E1E2E) : Colors.white);
-    final nameColor = isMe ? Colors.white : (isDark ? Colors.white : const Color(0xFF1A1A2E));
+        ? const Color(0xFF454D6E)
+        : (isDark ? const Color(0xFF363A52) : Colors.white);
+    final nameColor = isMe ? Colors.white : (isDark ? Colors.white : const Color(0xFF454D6E));
     final subColor  = isMe ? Colors.white60 : Colors.grey[500]!;
     final rankNumColor = isMe ? Colors.white70 : Colors.grey[400]!;
-    final expColor  = isMe ? Colors.white : (isDark ? Colors.white : const Color(0xFF1A1A2E));
+    final expColor  = isMe ? Colors.white : (isDark ? Colors.white : const Color(0xFF454D6E));
     final expSubColor = isMe ? Colors.white60 : Colors.grey[400]!;
 
     return Container(
@@ -276,8 +276,8 @@ class _LeaderboardTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [BoxShadow(
             color: isMe
-                ? const Color(0xFF1A1A2E).withOpacity(0.2)
-                : Colors.black.withOpacity(0.05),
+                ? const Color(0xFF454D6E).withValues(alpha: 0.2)
+                : Colors.black.withValues(alpha: 0.05),
             blurRadius: 10, offset: const Offset(0, 2))],
       ),
       child: Row(
@@ -299,7 +299,7 @@ class _LeaderboardTile extends StatelessWidget {
           // Avatar
           CircleAvatar(
             radius: 22,
-            backgroundColor: _colorFromName(name).withOpacity(isMe ? 0.5 : 1),
+            backgroundColor: _colorFromName(name).withValues(alpha: isMe ? 0.5 : 1),
             child: Text(name[0].toUpperCase(),
                 style: const TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.w700)),
           ),
@@ -320,7 +320,7 @@ class _LeaderboardTile extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(6)),
                         child: const Text('You',
                             style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w700)),

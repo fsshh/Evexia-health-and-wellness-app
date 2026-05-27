@@ -21,13 +21,17 @@ int _expForLevel(int level) => level * 500;
 
 int _totalExpForLevel(int level) {
   int total = 0;
-  for (int i = 1; i < level; i++) total += _expForLevel(i);
+  for (int i = 1; i < level; i++) {
+    total += _expForLevel(i);
+  }
   return total;
 }
 
 int _levelFromExp(int totalExp) {
   int level = 1;
-  while (totalExp >= _totalExpForLevel(level + 1)) level++;
+  while (totalExp >= _totalExpForLevel(level + 1)) {
+    level++;
+  }
   return level;
 }
 
@@ -624,7 +628,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         color: cardColor,
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: Colors.black.withValues(alpha: 0.06),
               blurRadius: 12,
               offset: const Offset(0, -3))
         ],
@@ -792,7 +796,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: txtColor.withOpacity(0.08),
+                                      color: txtColor.withValues(alpha: 0.08),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Row(
@@ -802,13 +806,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                                           width: 10, height: 10,
                                           child: CircularProgressIndicator(
                                               strokeWidth: 1.5,
-                                              color: txtColor.withOpacity(0.6)),
+                                              color: txtColor.withValues(alpha: 0.6)),
                                         ),
                                         const SizedBox(width: 6),
                                         Text(_loadingStatus,
                                             style: TextStyle(
                                                 fontSize: 11,
-                                                color: txtColor.withOpacity(0.6),
+                                                color: txtColor.withValues(alpha: 0.6),
                                                 fontWeight: FontWeight.w500)),
                                       ],
                                     ),
@@ -819,7 +823,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                         horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFF4CAF50)
-                                          .withOpacity(0.1),
+                                          .withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: const Row(
@@ -901,7 +905,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                        color: Colors.black.withOpacity(0.25),
+                        color: Colors.black.withValues(alpha: 0.25),
                         blurRadius: 20)
                   ],
                 ),
@@ -922,7 +926,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           Text('Week $_weekNumber starts now. Let\'s go! 🚀',
                               style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.white.withOpacity(0.75))),
+                                  color: Colors.white.withValues(alpha: 0.75))),
                         ],
                       ),
                     ),
@@ -938,7 +942,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             child: GestureDetector(
               onTap: () => setState(() => _showLevelUp = false),
               child: Container(
-                color: Colors.black.withOpacity(0.55),
+                color: Colors.black.withValues(alpha: 0.55),
                 child: Center(
                   child: ScaleTransition(
                     scale: _levelUpAnim,
@@ -954,7 +958,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         borderRadius: BorderRadius.circular(28),
                         boxShadow: [
                           BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
+                              color: Colors.black.withValues(alpha: 0.2),
                               blurRadius: 40)
                         ],
                       ),
@@ -980,7 +984,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 horizontal: 20, vertical: 8),
                             decoration: BoxDecoration(
                               color: _rankColor(_levelUpTo)
-                                  .withOpacity(0.12),
+                                  .withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
@@ -1113,7 +1117,7 @@ class _WeekReportModal extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A2E).withOpacity(0.06),
+              color: const Color(0xFF1A1A2E).withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Text(
@@ -1212,9 +1216,9 @@ class _ClaimDayButton extends StatelessWidget {
         width: double.infinity,
         height: 52,
         decoration: BoxDecoration(
-          color: const Color(0xFF4CAF50).withOpacity(0.1),
+          color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFF4CAF50).withOpacity(0.3)),
+          border: Border.all(color: const Color(0xFF4CAF50).withValues(alpha: 0.3)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1294,7 +1298,7 @@ class _ExpCard extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             const Color(0xFF1A1A2E),
-            rankColor.withOpacity(0.85)
+            rankColor.withValues(alpha: 0.85)
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -1302,7 +1306,7 @@ class _ExpCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-              color: rankColor.withOpacity(0.35),
+              color: rankColor.withValues(alpha: 0.35),
               blurRadius: 20,
               offset: const Offset(0, 6))
         ],
@@ -1316,7 +1320,7 @@ class _ExpCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(
                     horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.15),
+                  color: Colors.white.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Column(
@@ -1325,7 +1329,7 @@ class _ExpCard extends StatelessWidget {
                         style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
-                            color: Colors.white.withOpacity(0.7),
+                            color: Colors.white.withValues(alpha: 0.7),
                             letterSpacing: 1.5)),
                     Text('$level',
                         style: const TextStyle(
@@ -1345,10 +1349,10 @@ class _ExpCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: rankColor.withOpacity(0.25),
+                        color: rankColor.withValues(alpha: 0.25),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                            color: rankColor.withOpacity(0.5), width: 1),
+                            color: rankColor.withValues(alpha: 0.5), width: 1),
                       ),
                       child: Text('⭐ $rank',
                           style: const TextStyle(
@@ -1360,12 +1364,12 @@ class _ExpCard extends StatelessWidget {
                     Text('$totalExp total EXP',
                         style: TextStyle(
                             fontSize: 13,
-                            color: Colors.white.withOpacity(0.8),
+                            color: Colors.white.withValues(alpha: 0.8),
                             fontWeight: FontWeight.w500)),
                     Text('Week $weekNumber',
                         style: TextStyle(
                             fontSize: 11,
-                            color: Colors.white.withOpacity(0.5))),
+                            color: Colors.white.withValues(alpha: 0.5))),
                   ],
                 ),
               ),
@@ -1382,7 +1386,7 @@ class _ExpCard extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text('+$lastGained EXP',
@@ -1405,12 +1409,12 @@ class _ExpCard extends StatelessWidget {
               Text('$expInLevel',
                   style: TextStyle(
                       fontSize: 11,
-                      color: Colors.white.withOpacity(0.7),
+                      color: Colors.white.withValues(alpha: 0.7),
                       fontWeight: FontWeight.w600)),
               const Spacer(),
               Text('${_expNeededForCurrentLevel(totalExp)} EXP to next level',
                   style: TextStyle(
-                      fontSize: 11, color: Colors.white.withOpacity(0.6))),
+                      fontSize: 11, color: Colors.white.withValues(alpha: 0.6))),
             ],
           ),
           const SizedBox(height: 6),
@@ -1419,7 +1423,7 @@ class _ExpCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: expProgress,
               minHeight: 10,
-              backgroundColor: Colors.white.withOpacity(0.15),
+              backgroundColor: Colors.white.withValues(alpha: 0.15),
               valueColor: AlwaysStoppedAnimation<Color>(
                   rankColor == const Color(0xFFCD7F32)
                       ? Colors.amber.shade300
@@ -1490,7 +1494,7 @@ class _RecommendationSectionState
         boxShadow: [
           BoxShadow(
               color: Colors.black
-                  .withOpacity(widget.isDark ? 0.3 : 0.06),
+                  .withValues(alpha: widget.isDark ? 0.3 : 0.06),
               blurRadius: 14,
               offset: const Offset(0, 4))
         ],
@@ -1701,7 +1705,7 @@ class _TodoRow extends StatelessWidget {
                           horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: doneThisWeek > 0
-                            ? accentColor.withOpacity(0.1)
+                            ? accentColor.withValues(alpha: 0.1)
                             : Colors.grey[100],
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -1767,8 +1771,8 @@ class _TodoRow extends StatelessWidget {
 
                 switch (state) {
                   case DayState.done:
-                    bgColor     = accentColor.withOpacity(0.7);
-                    borderColor = accentColor.withOpacity(0.7);
+                    bgColor     = accentColor.withValues(alpha: 0.7);
+                    borderColor = accentColor.withValues(alpha: 0.7);
                     child = const Icon(Icons.check_rounded,
                         size: 13, color: Colors.white);
                   case DayState.missed:
@@ -1839,7 +1843,7 @@ class _TodoRow extends StatelessWidget {
                         ? [
                             BoxShadow(
                                 color:
-                                    accentColor.withOpacity(0.35),
+                                    accentColor.withValues(alpha: 0.35),
                                 blurRadius: 6,
                                 spreadRadius: 1)
                           ]
@@ -1909,7 +1913,7 @@ class _SkeletonCardState extends State<_SkeletonCard>
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 14,
                   offset: const Offset(0, 4))
             ],
@@ -1990,8 +1994,8 @@ class _SurveyChip extends StatelessWidget {
           const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.white.withOpacity(0.1)
-            : const Color(0xFF1A1A2E).withOpacity(0.07),
+            ? Colors.white.withValues(alpha: 0.1)
+            : const Color(0xFF1A1A2E).withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(

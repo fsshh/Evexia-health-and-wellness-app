@@ -114,7 +114,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
           content: Text('Friend request sent!'),
-          backgroundColor: Color(0xFF2196F3)),
+          backgroundColor: Color(0xFF999A5E)),
     );
   }
 
@@ -155,9 +155,9 @@ class _FriendsScreenState extends State<FriendsScreen>
   @override
   Widget build(BuildContext context) {
     final isDark  = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF0F0F1A) : const Color(0xFFF7F8FA);
-    final cardCol = isDark ? const Color(0xFF1E1E2E) : Colors.white;
-    final txtCol  = isDark ? Colors.white : const Color(0xFF1A1A2E);
+    final bgColor = isDark ? const Color(0xFF2A2D3E) : const Color(0xFFF1EFEE);
+    final cardCol = isDark ? const Color(0xFF363A52) : Colors.white;
+    final txtCol  = isDark ? Colors.white : const Color(0xFF454D6E);
 
     final pendingBadge = _pendingRequests.length;
 
@@ -215,7 +215,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                                 borderSide: BorderSide(
                                     color: isDark
                                         ? Colors.white54
-                                        : const Color(0xFF1A1A2E),
+                                        : const Color(0xFF454D6E),
                                     width: 1.5)),
                           ),
                         ),
@@ -226,7 +226,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                         child: ElevatedButton(
                           onPressed: _searching ? null : _searchUser,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1A1A2E),
+                            backgroundColor: const Color(0xFF454D6E),
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14)),
@@ -288,7 +288,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                   Container(
                     decoration: BoxDecoration(
                       color: isDark
-                          ? const Color(0xFF2A2A3E)
+                          ? const Color(0xFF3A3F58)
                           : Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -296,19 +296,19 @@ class _FriendsScreenState extends State<FriendsScreen>
                       controller: _tabCtrl,
                       indicator: BoxDecoration(
                         color: isDark
-                            ? const Color(0xFF1E1E2E)
+                            ? const Color(0xFF363A52)
                             : Colors.white,
                         borderRadius: BorderRadius.circular(10),
                         boxShadow: [
                           BoxShadow(
-                              color: Colors.black.withOpacity(0.08),
+                              color: Colors.black.withValues(alpha: 0.08),
                               blurRadius: 4)
                         ],
                       ),
                       indicatorPadding: const EdgeInsets.all(3),
                       indicatorSize: TabBarIndicatorSize.tab,
                       labelColor:
-                          isDark ? Colors.white : const Color(0xFF1A1A2E),
+                          isDark ? Colors.white : const Color(0xFF454D6E),
                       unselectedLabelColor: Colors.grey[500],
                       labelStyle: const TextStyle(
                           fontSize: 13, fontWeight: FontWeight.w700),
@@ -388,11 +388,11 @@ class _FriendsScreenState extends State<FriendsScreen>
                                   onRemove:  () =>
                                       _removeFriend(_friends[i]['uid']),
                                   cardColor: isDark
-                                      ? const Color(0xFF1E1E2E)
+                                      ? const Color(0xFF363A52)
                                       : Colors.white,
                                   txtColor: isDark
                                       ? Colors.white
-                                      : const Color(0xFF1A1A2E),
+                                      : const Color(0xFF454D6E),
                                 ),
                               ),
                             ),
@@ -436,11 +436,11 @@ class _FriendsScreenState extends State<FriendsScreen>
                                     onDecline: () =>
                                         _declineRequest(req['fromUid']),
                                     cardColor: isDark
-                                        ? const Color(0xFF1E1E2E)
+                                        ? const Color(0xFF363A52)
                                         : Colors.white,
                                     txtColor: isDark
                                         ? Colors.white
-                                        : const Color(0xFF1A1A2E),
+                                        : const Color(0xFF454D6E),
                                   );
                                 },
                               ),
@@ -495,10 +495,10 @@ class _SearchResultCard extends StatelessWidget {
         color: cardColor,
         borderRadius: BorderRadius.circular(14),
         border:
-            Border.all(color: const Color(0xFF1A1A2E).withOpacity(0.15)),
+            Border.all(color: const Color(0xFF454D6E).withValues(alpha: 0.15)),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.04), blurRadius: 8)
+              color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)
         ],
       ),
       child: Row(
@@ -526,7 +526,7 @@ class _SearchResultCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(
                   horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                  color: const Color(0xFF4CAF50).withOpacity(0.1),
+                  color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10)),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
@@ -571,7 +571,7 @@ class _SearchResultCard extends StatelessWidget {
             ElevatedButton(
               onPressed: sendingRequest ? null : onSendRequest,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A1A2E),
+                backgroundColor: const Color(0xFF454D6E),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10)),
@@ -625,7 +625,7 @@ class _RequestTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 8,
               offset: const Offset(0, 2))
         ],
@@ -672,7 +672,7 @@ class _RequestTile extends StatelessWidget {
                 child: Container(
                   width: 36, height: 36,
                   decoration: const BoxDecoration(
-                      color: Color(0xFF1A1A2E),
+                      color: Color(0xFF454D6E),
                       shape: BoxShape.circle),
                   child: const Icon(Icons.check_rounded,
                       color: Colors.white, size: 18),
@@ -714,7 +714,7 @@ class _FriendTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 8,
               offset: const Offset(0, 2))
         ],
@@ -788,7 +788,7 @@ class _Avatar extends StatelessWidget {
 
   Color _colorFromName(String name) {
     final colors = [
-      const Color(0xFF1A1A2E),
+      const Color(0xFF454D6E),
       const Color(0xFF2196F3),
       const Color(0xFF4CAF50),
       const Color(0xFF9C27B0),

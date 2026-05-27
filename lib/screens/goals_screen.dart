@@ -88,7 +88,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
           Container(
             width: 26, height: 26,
             decoration: const BoxDecoration(
-              color: Color(0xFF1A1A2E),
+              color: Color(0xFF454D6E),
               shape: BoxShape.circle,
             ),
             child: Center(
@@ -100,7 +100,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
           Expanded(
             child: Text(title,
                 style: const TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E), height: 1.4)),
+                    fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF454D6E), height: 1.4)),
           ),
         ],
       ),
@@ -122,13 +122,13 @@ class _GoalsScreenState extends State<GoalsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: selected
-              ? const Color(0xFF1A1A2E).withValues(alpha: 0.06)
+              ? const Color(0xFF454D6E).withValues(alpha: 0.06)
               : disabled
                   ? Colors.grey[50]
                   : Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: selected ? const Color(0xFF1A1A2E) : Colors.grey[300]!,
+            color: selected ? const Color(0xFF454D6E) : Colors.grey[300]!,
             width: selected ? 1.5 : 1,
           ),
         ),
@@ -140,10 +140,10 @@ class _GoalsScreenState extends State<GoalsScreen> {
               width: 20, height: 20,
               margin: const EdgeInsets.only(top: 1),
               decoration: BoxDecoration(
-                color: selected ? const Color(0xFF1A1A2E) : Colors.white,
+                color: selected ? const Color(0xFF454D6E) : Colors.white,
                 borderRadius: BorderRadius.circular(5),
                 border: Border.all(
-                  color: selected ? const Color(0xFF1A1A2E) : Colors.grey[400]!,
+                  color: selected ? const Color(0xFF454D6E) : Colors.grey[400]!,
                   width: 1.5,
                 ),
               ),
@@ -160,7 +160,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                        color: disabled ? Colors.grey[400] : const Color(0xFF1A1A2E),
+                        color: disabled ? Colors.grey[400] : const Color(0xFF454D6E),
                       )),
                   if (subtitle != null) ...[
                     const SizedBox(height: 2),
@@ -185,10 +185,10 @@ class _GoalsScreenState extends State<GoalsScreen> {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF1A1A2E).withValues(alpha: 0.06) : Colors.white,
+          color: selected ? const Color(0xFF454D6E).withValues(alpha: 0.10) : Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: selected ? const Color(0xFF1A1A2E) : Colors.grey[300]!,
+            color: selected ? const Color(0xFF454D6E) : Colors.grey[300]!,
             width: selected ? 1.5 : 1,
           ),
         ),
@@ -199,7 +199,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: selected ? const Color(0xFF1A1A2E) : Colors.grey[400]!,
+                  color: selected ? const Color(0xFF454D6E) : Colors.grey[400]!,
                   width: 2,
                 ),
               ),
@@ -209,7 +209,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                         width: 10, height: 10,
                         decoration: const BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Color(0xFF1A1A2E),
+                          color: Color(0xFF454D6E),
                         ),
                       ),
                     )
@@ -221,7 +221,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                    color: const Color(0xFF1A1A2E),
+                    color: const Color(0xFF454D6E),
                   )),
             ),
           ],
@@ -261,7 +261,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF1EFEE),
       body: SafeArea(
         child: Column(
           children: [
@@ -271,13 +271,13 @@ class _GoalsScreenState extends State<GoalsScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_ios, size: 18, color: Color(0xFF1A1A2E)),
+                    icon: const Icon(Icons.arrow_back_ios, size: 18, color: Color(0xFF454D6E)),
                     onPressed: () => Navigator.pop(context),
                   ),
                   const Expanded(
                     child: Text('Your Goals',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF1A1A2E))),
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF454D6E))),
                   ),
                   const SizedBox(width: 48),
                 ],
@@ -373,7 +373,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
 
                     // ── Notes ─────────────────────────────
                     const Text('Additional notes (optional)',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1A1A2E))),
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF454D6E))),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _notesController,
@@ -382,7 +382,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                         hintText: 'Type here...',
                         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
                         filled: true,
-                        fillColor: Colors.grey[50],
+                        fillColor: const Color(0xFFECEAE8),
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                             borderSide: BorderSide(color: Colors.grey[300]!)),
@@ -391,7 +391,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                             borderSide: BorderSide(color: Colors.grey[300]!)),
                         focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: Color(0xFF1A1A2E), width: 1.5)),
+                            borderSide: const BorderSide(color: Color(0xFF454D6E), width: 1.5)),
                         contentPadding: const EdgeInsets.all(14),
                       ),
                     ),
@@ -405,7 +405,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                       child: ElevatedButton(
                         onPressed: _canContinue ? () => _onContinue() : null,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1A1A2E),
+                          backgroundColor: const Color(0xFF454D6E),
                           disabledBackgroundColor: Colors.grey[300],
                           foregroundColor: Colors.white,
                           disabledForegroundColor: Colors.grey[500],

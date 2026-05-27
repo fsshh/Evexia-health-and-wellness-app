@@ -13,10 +13,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<Map<String, String>> _pages = [
     {
-      'title': 'Onboarding Title',
-      'desc1': 'Description text line 1',
-      'desc2': 'Description text line 2',
-      'desc3': 'Description text line 3',
+      'title': 'Welcome to Evexia!',
+      'desc1': 'Earn EXP after completing goals',
+      'desc2': 'Track your health and make plans',
+      'desc3': 'AI powered recommendations',
     },
     {
       'title': 'Track Your Health',
@@ -35,7 +35,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF1EFEE),
       body: SafeArea(
         child: Column(
           children: [
@@ -45,7 +45,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_ios, size: 18, color: Color(0xFF1A1A2E)),
+                    icon: const Icon(Icons.arrow_back_ios, size: 18, color: Color(0xFF454D6E)),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -64,7 +64,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF1A1A2E),
+                        color: Color(0xFF454D6E),
                         letterSpacing: 0.3,
                       ),
                     ),
@@ -80,7 +80,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           height: 8,
                           decoration: BoxDecoration(
                             color: _currentPage == index
-                                ? const Color(0xFF1A1A2E)
+                                ? const Color(0xFF454D6E)
                                 : Colors.grey[300],
                             borderRadius: BorderRadius.circular(4),
                           ),
@@ -112,7 +112,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF1A1A2E),
+                        color: Color(0xFF454D6E),
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -123,13 +123,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       _pages[_currentPage]['desc3']!,
                     ].map((text) => Padding(
                           padding: const EdgeInsets.only(bottom: 8.0),
-                          child: Container(
-                            height: 12,
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              borderRadius: BorderRadius.circular(4),
+                          child: Text(
+                            text,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[700],
                             ),
+                            textAlign: TextAlign.center,
                           ),
                         )),
                     const Spacer(),
@@ -151,7 +151,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           }
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1A1A2E),
+                          backgroundColor: const Color(0xFF454D6E),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -181,7 +181,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       child: const Text(
                         'Skip',
                         style: TextStyle(
-                          color: Color(0xFF1A1A2E),
+                          color: Color(0xFF454D6E),
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
                         ),
