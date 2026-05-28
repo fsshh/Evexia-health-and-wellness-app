@@ -203,8 +203,7 @@ class _Podium extends StatelessWidget {
     // Order: 2nd, 1st, 3rd for visual podium effect
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: SizedBox(
-        height: 200,
+      child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [

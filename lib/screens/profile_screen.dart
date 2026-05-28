@@ -9,12 +9,14 @@ class ProfileScreen extends StatefulWidget {
   final int weekNumber;
   // DEV ONLY — null in production builds
   final Future<void> Function()? onDevResetWeek;
+  final void Function(int targetLevel)? onDevSetLevel;
 
   const ProfileScreen({
     super.key,
     required this.totalExp,
     required this.weekNumber,
     this.onDevResetWeek,
+    this.onDevSetLevel,
   });
 
   @override
@@ -55,21 +57,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ── EXP helpers ─────────────────────────────────────────
-  int get _level => (widget.totalExp ~/ 500) + 1;
-
   int _expForLevel(int level) => level * 500;
 
   int _totalExpForLevel(int level) {
     int total = 0;
     for (int i = 1; i < level; i++) {
       total += _expForLevel(i);
-    } 
+    }
     return total;
   }
 
+  int _levelFromExp(int exp) {
+    int level = 1;
+    while (exp >= _totalExpForLevel(level + 1)) {
+      level++;
+    }
+    return level;
+  }
+
+  int get _level => _levelFromExp(widget.totalExp);
   int get _expInLevel => widget.totalExp - _totalExpForLevel(_level);
   int get _expNeeded  => _expForLevel(_level);
-  double get _expProgress => _expInLevel / _expNeeded;
+  double get _expProgress => _expNeeded > 0 ? _expInLevel / _expNeeded : 0.0;
 
   String get _rankLabel {
     if (_level >= 20) return 'Legendary';
@@ -317,6 +326,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) {
         bool resetting = false;
+        int targetLevel = _level; // start at current level
         return StatefulBuilder(
           builder: (ctx, setLocal) => Container(
             margin: const EdgeInsets.all(16),
@@ -369,6 +379,99 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 20),
                 Divider(color: Colors.white.withValues(alpha: 0.08)),
                 const SizedBox(height: 16),
+
+                // ── Set Level ────────────────────────────────
+                if (widget.onDevSetLevel != null) ...[
+                  Row(
+                    children: [
+                      Container(
+                        width: 44, height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.purple.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.military_tech_rounded,
+                            color: Colors.purpleAccent, size: 22),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Set Level',
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white)),
+                            Text('Current: Level $_level',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white.withValues(alpha: 0.45))),
+                          ],
+                        ),
+                      ),
+                      // Stepper
+                      Row(
+                        children: [
+                          _DevStepBtn(
+                            icon: Icons.remove_rounded,
+                            onTap: () {
+                              if (targetLevel > 1) setLocal(() => targetLevel--);
+                            },
+                          ),
+                          Container(
+                            width: 44,
+                            alignment: Alignment.center,
+                            child: Text(
+                              '$targetLevel',
+                              style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white),
+                            ),
+                          ),
+                          _DevStepBtn(
+                            icon: Icons.add_rounded,
+                            onTap: () {
+                              if (targetLevel < 30) setLocal(() => targetLevel++);
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 40,
+                    child: ElevatedButton(
+                      onPressed: targetLevel == _level
+                          ? null
+                          : () {
+                              Navigator.pop(ctx);
+                              widget.onDevSetLevel!(targetLevel);
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.purpleAccent.withValues(alpha: 0.25),
+                        foregroundColor: Colors.purpleAccent,
+                        disabledBackgroundColor: Colors.white.withValues(alpha: 0.05),
+                        disabledForegroundColor: Colors.white24,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Text(
+                        targetLevel == _level
+                            ? 'Select a different level'
+                            : 'Apply Level $targetLevel',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Divider(color: Colors.white.withValues(alpha: 0.08)),
+                  const SizedBox(height: 16),
+                ],
+
                 // ── Reset Week ───────────────────────────────
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -422,6 +525,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (_) {
       return '—';
     }
+  }
+}
+
+// ── Dev stepper button ─────────────────────────────────────
+class _DevStepBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _DevStepBtn({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 32, height: 32,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: Colors.white, size: 18),
+      ),
+    );
   }
 }
 

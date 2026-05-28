@@ -6,14 +6,15 @@ import 'package:flutter/material.dart';
 
 class AIService {
   static const String _model = 'gemini-2.5-flash';
-  static const String _apiKey = 'AIzaSyD3Ny0GsMSd2wPoi4WWZSF6Ulva50QhF3s';
+  static const String _apiKey = 'AIzaSyBAb6_-gab6iR2Zmmzwk-UdGOVC3x4QLls';
   static const int _maxRetries = 4;
   static const List<int> _retryDelaysSeconds = [5, 10, 20];
 
   static String get _apiUrl =>
       'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent?key=$_apiKey';
 
-  static Future<List<AIRecommendation>> getRecommendations(UserProfile profile) async {
+  static Future<List<AIRecommendation>> getRecommendations(
+      UserProfile profile, {int level = 1}) async {
     int attempt = 0;
     while (true) {
       try {
@@ -23,7 +24,7 @@ class AIService {
           body: jsonEncode({
             'contents': [
               {
-                'parts': [{'text': _buildPrompt(profile)}],
+                'parts': [{'text': _buildPrompt(profile, level: level)}],
               },
             ],
             'generationConfig': {
@@ -55,18 +56,38 @@ class AIService {
         return _parseRecommendations(rawText);
 
       } on Exception {
+
         rethrow;
       }
     }
   }
 
-  static String _buildPrompt(UserProfile profile) {
+  static String _buildPrompt(UserProfile profile, {int level = 1}) {
     final goals = profile.primaryGoals.join(', ');
     final struggles = profile.struggles.isEmpty ? 'None specified' : profile.struggles.join(', ');
     final diet = profile.dietaryPatterns.isEmpty ? 'No restrictions' : profile.dietaryPatterns.join(', ');
 
+    // Derive intensity tier from level
+    final String intensityNote;
+    if (level >= 20) {
+      intensityNote = 'The user is at LEGENDARY level ($level). Provide elite-level, highly specific, and challenging tasks that push their limits. Assume strong baseline fitness and discipline.';
+    } else if (level >= 15) {
+      intensityNote = 'The user is at DIAMOND level ($level). Provide advanced, demanding tasks with precise metrics. They are highly committed and can handle significant challenge.';
+    } else if (level >= 10) {
+      intensityNote = 'The user is at PLATINUM level ($level). Provide moderately advanced tasks with specific targets. They have solid habits and want to push further.';
+    } else if (level >= 7) {
+      intensityNote = 'The user is at GOLD level ($level). Provide intermediate tasks with clear progression from beginner habits. They are consistent and ready to level up intensity.';
+    } else if (level >= 4) {
+      intensityNote = 'The user is at SILVER level ($level). Provide slightly more challenging tasks than beginner level — introduce new habits while building on existing ones.';
+    } else {
+      intensityNote = 'The user is at BRONZE level ($level). Provide approachable, beginner-friendly tasks that are easy to start and build confidence.';
+    }
+
     return '''
 You are an expert health and wellness coach. A user has completed a detailed health survey.
+
+IMPORTANT CONTEXT — User's current fitness level:
+$intensityNote
 
 Survey answers:
 1. Primary goals (up to 2): $goals
@@ -134,6 +155,52 @@ Respond ONLY with a valid JSON array. No preamble, no markdown fences, no extra 
   }
 ]
 ''';
+  }
+
+
+  /// Generic single-turn completion — returns the raw text response.
+  /// Used for task-level AI suggestions in the edit sheet.
+  static Future<String> getRawCompletion(String prompt) async {
+    int attempt = 0;
+    while (true) {
+      try {
+        final response = await http.post(
+          Uri.parse(_apiUrl),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({
+            "contents": [
+              {
+                "parts": [{"text": prompt}],
+              },
+            ],
+            "generationConfig": {
+              "maxOutputTokens": 1024,
+              "temperature": 0.7,
+              "thinkingConfig": {"thinkingBudget": 0},
+            },
+          }),
+        ).timeout(const Duration(seconds: 20));
+
+        if (response.statusCode == 429 || response.statusCode == 503) {
+          if (attempt < _maxRetries - 1) {
+            final delay = _retryDelaysSeconds[attempt.clamp(0, _retryDelaysSeconds.length - 1)];
+            await Future.delayed(Duration(seconds: delay));
+            attempt++;
+            continue;
+          }
+          throw Exception("AI is currently busy. Please try again.");
+        }
+
+        if (response.statusCode != 200) {
+          throw Exception("API error ${response.statusCode}");
+        }
+
+        final data = jsonDecode(response.body);
+        return data["candidates"][0]["content"]["parts"][0]["text"] as String;
+      } on Exception {
+        rethrow;
+      }
+    }
   }
 
   static List<AIRecommendation> _parseRecommendations(String rawText) {

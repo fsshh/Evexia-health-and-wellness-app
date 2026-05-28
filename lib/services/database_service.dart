@@ -173,6 +173,7 @@ class DatabaseService {
     required List<AIRecommendation> recommendations,
     required int expEarned,
     DateTime? weekStart,
+    Set<int>? claimedDays,
   }) async {
     final List<Map<String, dynamic>> recsData = [];
 
@@ -202,11 +203,21 @@ class DatabaseService {
       'savedAt':         FieldValue.serverTimestamp(),
       'expEarned':       expEarned,
       'weekStart':       weekStart != null ? Timestamp.fromDate(weekStart) : FieldValue.serverTimestamp(),
+      'claimedDays':     claimedDays != null ? claimedDays.toList() : [],
       'recommendations': recsData,
     });
   }
 
   static Future<List<AIRecommendation>?> loadWeekData({
+    required String uid,
+    required int weekNumber,
+  }) async {
+    final result = await loadWeekDataFull(uid: uid, weekNumber: weekNumber);
+    return result?['recommendations'] as List<AIRecommendation>?;
+  }
+
+  /// Loads recommendations AND claimedDays for a given week.
+  static Future<Map<String, dynamic>?> loadWeekDataFull({
     required String uid,
     required int weekNumber,
   }) async {
@@ -247,7 +258,16 @@ class DatabaseService {
       ));
     }
 
-    return result;
+    // Parse claimed days
+    final rawClaimed = doc.data()!['claimedDays'];
+    final claimedDays = rawClaimed != null
+        ? Set<int>.from((rawClaimed as List<dynamic>).map((e) => (e as num).toInt()))
+        : <int>{};
+
+    return {
+      'recommendations': result,
+      'claimedDays': claimedDays,
+    };
   }
 
   // ── Week Reports ──────────────────────────────────────

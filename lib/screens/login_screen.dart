@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
+import '../models/user_profile.dart';
 import 'onboarding_screen.dart';
 import 'dashboard_screen.dart';
 import '../widgets/auth_widgets.dart';
@@ -55,8 +56,10 @@ class _LoginScreenState extends State<LoginScreen> {
       final userProfile = await DatabaseService.getUserProfile(uid);
       final totalExp   = (userProfile?['totalExp']   as int?) ?? 0;
       final weekNumber = (userProfile?['weekNumber'] as int?) ?? 1;
-      final weekData   = await DatabaseService.loadWeekData(
+      final weekDataFull = await DatabaseService.loadWeekDataFull(
           uid: uid, weekNumber: weekNumber);
+      final weekData    = weekDataFull?['recommendations'] as List<dynamic>?;
+      final claimedDays = weekDataFull?['claimedDays'] as Set<int>? ?? {};
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
@@ -64,7 +67,8 @@ class _LoginScreenState extends State<LoginScreen> {
             userProfile: profile,
             savedTotalExp: totalExp,
             savedWeekNumber: weekNumber,
-            savedRecommendations: weekData,
+            savedRecommendations: weekData != null ? weekData.cast<AIRecommendation>() : null,
+            savedClaimedDays: claimedDays,
           ),
         ),
         (route) => false,

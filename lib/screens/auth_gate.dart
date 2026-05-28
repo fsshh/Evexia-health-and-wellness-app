@@ -1,3 +1,4 @@
+import 'package:evexia_app/models/user_profile.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
@@ -74,7 +75,10 @@ class _SavedDashboardLoaderState extends State<_SavedDashboardLoader> {
     final profile = await DatabaseService.getUserProfile(widget.uid);
     final totalExp   = (profile?['totalExp']   as int?) ?? 0;
     final weekNumber = (profile?['weekNumber'] as int?) ?? 1;
-    final weekData   = await DatabaseService.loadWeekData(uid: widget.uid, weekNumber: weekNumber);
+    final weekDataFull = await DatabaseService.loadWeekDataFull(uid: widget.uid, weekNumber: weekNumber);
+
+    final weekData   = weekDataFull?['recommendations'] as List<dynamic>?;
+    final claimedDays = weekDataFull?['claimedDays'] as Set<int>? ?? {};
 
     if (!mounted) return;
     Navigator.pushReplacement(
@@ -84,7 +88,8 @@ class _SavedDashboardLoaderState extends State<_SavedDashboardLoader> {
           userProfile: widget.userProfile,
           savedTotalExp: totalExp,
           savedWeekNumber: weekNumber,
-          savedRecommendations: weekData,
+          savedRecommendations: weekData != null ? weekData.cast<AIRecommendation>() : null,
+          savedClaimedDays: claimedDays,
         ),
       ),
     );

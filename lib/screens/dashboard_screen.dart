@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../models/user_profile.dart';
 import '../services/ai_service.dart';
@@ -107,6 +108,7 @@ class DashboardScreen extends StatefulWidget {
   final int savedWeekNumber;
   final List<AIRecommendation>? savedRecommendations;
   final DateTime? savedWeekStart;
+  final Set<int> savedClaimedDays;
 
   const DashboardScreen({
     super.key,
@@ -115,7 +117,8 @@ class DashboardScreen extends StatefulWidget {
     this.savedWeekNumber = 1,
     this.savedRecommendations,
     this.savedWeekStart,
-  });
+    Set<int>? savedClaimedDays,
+  }) : savedClaimedDays = savedClaimedDays ?? const {};
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -134,13 +137,14 @@ class _DashboardScreenState extends State<DashboardScreen>
   late DateTime _weekStart;
 
   // Which days have been claimed (0=Mon … 6=Sun)
-  final Set<int> _claimedDays = {};
+  late final Set<int> _claimedDays;
 
   // Level-up animation
   late AnimationController _levelUpCtrl;
   late Animation<double> _levelUpAnim;
   bool _showLevelUp = false;
   int _levelUpTo = 1;
+  bool _levelUpRefreshing = false; // true while new AI plan loads after level-up
 
   // EXP gain animation
   late AnimationController _expBurstCtrl;
@@ -151,6 +155,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   late AnimationController _newWeekCtrl;
   late Animation<double> _newWeekAnim;
   bool _showNewWeek = false;
+  bool _newWeekIsLevelUp = false; // true when banner is triggered by level-up refresh
 
   @override
   void initState() {
@@ -173,6 +178,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     _totalExp   = widget.savedTotalExp;
     _weekNumber = widget.savedWeekNumber;
     _weekStart  = widget.savedWeekStart ?? _currentMonday();
+    _claimedDays = Set<int>.from(widget.savedClaimedDays);
 
     if (widget.savedRecommendations != null) {
       _recommendations = widget.savedRecommendations;
@@ -239,7 +245,11 @@ class _DashboardScreenState extends State<DashboardScreen>
       setState(() { _showLevelUp = true; _levelUpTo = newLevel; });
       _levelUpCtrl.forward(from: 0).then((_) {
         Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) setState(() => _showLevelUp = false);
+          if (mounted) {
+            setState(() => _showLevelUp = false);
+            // Trigger fresh AI recommendations for the new level
+            _fetchRecommendationsForLevel(newLevel);
+          }
         });
       });
     }
@@ -330,12 +340,13 @@ class _DashboardScreenState extends State<DashboardScreen>
         recommendations: _recommendations!,
         expEarned:       0,
         weekStart:       _weekStart,
+        claimedDays:     {},
       );
     }
 
     // "New tasks for this week!" banner
     if (mounted) {
-      setState(() => _showNewWeek = true);
+      setState(() { _showNewWeek = true; _newWeekIsLevelUp = false; });
       _newWeekCtrl.forward(from: 0);
       Future.delayed(const Duration(seconds: 3), () {
         if (mounted) {
@@ -391,6 +402,70 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
+  /// Called after a level-up — fetches a fresh plan tuned to the new level,
+  /// preserving existing day-state marks (only replaces tasks & summaries).
+  Future<void> _fetchRecommendationsForLevel(int newLevel) async {
+    setState(() {
+      _levelUpRefreshing = true;
+      _loadingStatus = 'Unlocking Level $newLevel tasks...';
+    });
+    try {
+      final recs = await AIService.getRecommendations(
+          widget.userProfile, level: newLevel);
+      if (!mounted) return;
+
+      // Preserve day-state marks from the existing week where possible
+      List<AIRecommendation> merged = recs;
+      if (_recommendations != null && _recommendations!.length == recs.length) {
+        merged = List.generate(recs.length, (ri) {
+          final newRec = recs[ri];
+          final oldRec = _recommendations![ri];
+          final mergedTodos = List.generate(newRec.todos.length, (ti) {
+            final newTodo = newRec.todos[ti];
+            // Keep day marks if the same todo index exists in old rec
+            final oldDays = ti < oldRec.todos.length
+                ? oldRec.todos[ti].days
+                : null;
+            return TodoItem(
+              task:   newTodo.task,
+              detail: newTodo.detail,
+              days:   oldDays ?? newTodo.days,
+            );
+          });
+          return AIRecommendation(
+            category: newRec.category,
+            title:    newRec.title,
+            summary:  newRec.summary,
+            todos:    mergedTodos,
+          );
+        });
+      }
+
+      setState(() {
+        _recommendations    = merged;
+        _levelUpRefreshing  = false;
+      });
+      _autoSaveWeek();
+
+      // Show "new plan unlocked" banner
+      if (mounted) {
+        setState(() { _showNewWeek = true; _newWeekIsLevelUp = true; });
+        _newWeekCtrl.forward(from: 0);
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) {
+            _newWeekCtrl.reverse().then((_) {
+              if (mounted) setState(() { _showNewWeek = false; _newWeekIsLevelUp = false; });
+            });
+          }
+        });
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _levelUpRefreshing = false);
+      // Silently fail — the old plan stays intact
+    }
+  }
+
   void _startLoadingStatusCycle() {
     final messages = [
       'Generating your plan...',
@@ -441,7 +516,34 @@ class _DashboardScreenState extends State<DashboardScreen>
       recommendations: _recommendations!,
       expEarned:       _computeWeeklyExp(_recommendations!),
       weekStart:       _weekStart,
+      claimedDays:     _claimedDays,
     );
+  }
+
+  /// DEV: jumps totalExp to [targetLevel] and triggers level-up + AI refresh.
+  void _devSetLevel(int targetLevel) {
+    // Set EXP to 1 past the boundary so _levelFromExp resolves unambiguously
+    final newExp = _totalExpForLevel(targetLevel) + 1;
+    final prevLevel = _levelFromExp(_totalExp);
+    setState(() => _totalExp = newExp);
+    final uid = AuthService.currentUid;
+    if (uid != null) {
+      DatabaseService.updateExpAndWeek(
+          uid: uid, totalExp: _totalExp, weekNumber: _weekNumber);
+    }
+    if (targetLevel > prevLevel) {
+      // Show level-up overlay, then immediately fire AI refresh (no extra delay for dev)
+      setState(() { _showLevelUp = true; _levelUpTo = targetLevel; });
+      _levelUpCtrl.forward(from: 0).then((_) {
+        if (mounted) {
+          setState(() => _showLevelUp = false);
+          _fetchRecommendationsForLevel(targetLevel);
+        }
+      });
+    } else {
+      // Going down or same — just refresh plan for that level without overlay
+      _fetchRecommendationsForLevel(targetLevel);
+    }
   }
 
   Map<String, dynamic> _categoryConfig(String category) {
@@ -525,10 +627,44 @@ class _DashboardScreenState extends State<DashboardScreen>
           iconColor:   config['iconColor'] as Color,
           accentColor: config['accentColor'] as Color,
           onToggleDay: _toggleDay,
+          onEditTodo:  _editTodo,
           todayIndex:  _todayIndex(),
           isDark:      isDark,
         );
       }),
+    );
+  }
+
+  /// Opens the task edit sheet for the given rec/todo.
+  void _editTodo(int recIndex, int todoIndex) {
+    final rec  = _recommendations![recIndex];
+    final todo = rec.todos[todoIndex];
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _EditTodoSheet(
+        todo:        todo,
+        category:    rec.category,
+        userProfile: widget.userProfile,
+        onSave:      (newTask, newDetail) {
+          setState(() {
+            final newTodos = List<TodoItem>.from(rec.todos);
+            newTodos[todoIndex] = TodoItem(
+              task:   newTask,
+              detail: newDetail,
+              days:   todo.days,
+            );
+            _recommendations![recIndex] = AIRecommendation(
+              category: rec.category,
+              title:    rec.title,
+              summary:  rec.summary,
+              todos:    newTodos,
+            );
+          });
+          _autoSaveWeek();
+        },
+      ),
     );
   }
 
@@ -825,7 +961,29 @@ class _DashboardScreenState extends State<DashboardScreen>
                                       ],
                                     ),
                                   ),
-                                if (!_isLoading && _error == null)
+                                if (_levelUpRefreshing && !_isLoading)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF4CAF50).withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        SizedBox(width: 10, height: 10,
+                                            child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF4CAF50))),
+                                        SizedBox(width: 6),
+                                        Text('Upgrading plan…',
+                                            style: TextStyle(
+                                                fontSize: 11,
+                                                color: Color(0xFF4CAF50),
+                                                fontWeight: FontWeight.w600)),
+                                      ],
+                                    ),
+                                  ),
+                                if (!_isLoading && !_levelUpRefreshing && _error == null)
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 10, vertical: 4),
@@ -891,6 +1049,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 totalExp:         _totalExp,
                 weekNumber:       _weekNumber,
                 onDevResetWeek:   () => _finalizeWeek(auto: false, devMode: true),
+                onDevSetLevel:    _devSetLevel,
               ),
             ],
           ),
@@ -919,22 +1078,26 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
                 child: Row(
                   children: [
-                    const Text('🎯', style: TextStyle(fontSize: 28)),
+                    Text(_newWeekIsLevelUp ? '⚡' : '🎯', style: const TextStyle(fontSize: 28)),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('New tasks for this week!',
-                              style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white)),
+                          Text(
+                            _newWeekIsLevelUp ? 'Level $_levelUpTo plan unlocked!' : 'New tasks for this week!',
+                            style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white)),
                           const SizedBox(height: 2),
-                          Text('Week $_weekNumber starts now. Let\'s go! 🚀',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.white.withValues(alpha: 0.75))),
+                          Text(
+                            _newWeekIsLevelUp
+                                ? 'Your AI plan just upgraded. Check it out! 🚀'
+                                : 'Week $_weekNumber starts now. Let\'s go! 🚀',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.white.withValues(alpha: 0.75))),
                         ],
                       ),
                     ),
@@ -1007,6 +1170,20 @@ class _DashboardScreenState extends State<DashboardScreen>
                           Text('Tap anywhere to continue',
                               style: TextStyle(
                                   fontSize: 12, color: Colors.grey[400])),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox(width: 10, height: 10,
+                                  child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF4CAF50))),
+                              const SizedBox(width: 8),
+                              Text('Unlocking your Level $_levelUpTo plan…',
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF4CAF50),
+                                      fontWeight: FontWeight.w600)),
+                            ],
+                          ),
                         ],
                       ),
                     ),
@@ -1457,6 +1634,7 @@ class _RecommendationSection extends StatefulWidget {
   final Color accentColor;
   final void Function(int recIndex, int todoIndex, int dayIndex, DayState current)
       onToggleDay;
+  final void Function(int recIndex, int todoIndex) onEditTodo;
   final int todayIndex;
   final bool isDark;
 
@@ -1468,6 +1646,7 @@ class _RecommendationSection extends StatefulWidget {
     required this.iconColor,
     required this.accentColor,
     required this.onToggleDay,
+    required this.onEditTodo,
     required this.todayIndex,
     required this.isDark,
   });
@@ -1640,6 +1819,7 @@ class _RecommendationSectionState
                         widget.onToggleDay(
                             widget.recIndex, todoIndex,
                             dayIndex, current),
+                    onEdit: () => widget.onEditTodo(widget.recIndex, todoIndex),
                   );
                 }),
                 const SizedBox(height: 4),
@@ -1663,6 +1843,7 @@ class _TodoRow extends StatelessWidget {
   final int todayIndex;
   final bool isDark;
   final void Function(int dayIndex, DayState current) onToggleDay;
+  final VoidCallback onEdit;
 
   const _TodoRow({
     required this.todo,
@@ -1671,6 +1852,7 @@ class _TodoRow extends StatelessWidget {
     required this.todayIndex,
     required this.isDark,
     required this.onToggleDay,
+    required this.onEdit,
   });
 
   @override
@@ -1696,7 +1878,9 @@ class _TodoRow extends StatelessWidget {
     final doneBadgeTxt  = doneThisWeek > 0 ? accentColor : Colors.grey[400]!;
     final missedBadgeBg = isDark ? Colors.red.shade900.withValues(alpha: 0.35) : Colors.red.shade50;
 
-    return Container(
+    return GestureDetector(
+      onLongPress: onEdit,
+      child: Container(
       decoration: BoxDecoration(
         border: isLast
             ? null
@@ -1710,12 +1894,29 @@ class _TodoRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(todo.task,
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: txtColor,
-                        height: 1.3)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(todo.task,
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: txtColor,
+                              height: 1.3)),
+                    ),
+                    GestureDetector(
+                      onTap: onEdit,
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: Icon(Icons.edit_outlined,
+                            size: 14,
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.25)
+                                : Colors.grey[350]),
+                      ),
+                    ),
+                  ],
+                ),
                 if (todo.detail.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(todo.detail,
@@ -1873,6 +2074,7 @@ class _TodoRow extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }
@@ -2085,6 +2287,507 @@ class _NavItem extends StatelessWidget {
                       : FontWeight.w400,
                   color: selected ? activeColor : inactiveColor)),
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// Edit Todo Sheet
+// Two tabs: Manual edit | Ask AI for a suggestion
+// ─────────────────────────────────────────────────────────
+class _EditTodoSheet extends StatefulWidget {
+  final TodoItem todo;
+  final String category;
+  final UserProfile userProfile;
+  final void Function(String task, String detail) onSave;
+
+  const _EditTodoSheet({
+    required this.todo,
+    required this.category,
+    required this.userProfile,
+    required this.onSave,
+  });
+
+  @override
+  State<_EditTodoSheet> createState() => _EditTodoSheetState();
+}
+
+class _EditTodoSheetState extends State<_EditTodoSheet>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabCtrl;
+  late TextEditingController _taskCtrl;
+  late TextEditingController _detailCtrl;
+  final TextEditingController _aiPromptCtrl = TextEditingController();
+
+  bool _aiLoading = false;
+  String? _aiError;
+  String? _aiSuggestedTask;
+  String? _aiSuggestedDetail;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabCtrl   = TabController(length: 2, vsync: this);
+    _taskCtrl   = TextEditingController(text: widget.todo.task);
+    _detailCtrl = TextEditingController(text: widget.todo.detail);
+  }
+
+  @override
+  void dispose() {
+    _tabCtrl.dispose();
+    _taskCtrl.dispose();
+    _detailCtrl.dispose();
+    _aiPromptCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _askAI() async {
+    final prompt = _aiPromptCtrl.text.trim();
+    if (prompt.isEmpty) return;
+
+    setState(() {
+      _aiLoading       = true;
+      _aiError         = null;
+      _aiSuggestedTask   = null;
+      _aiSuggestedDetail = null;
+    });
+
+    try {
+      final goals = widget.userProfile.primaryGoals.join(', ');
+      final diet  = widget.userProfile.dietaryPatterns.isEmpty
+          ? 'No restrictions'
+          : widget.userProfile.dietaryPatterns.join(', ');
+
+      final systemPrompt = '''
+You are a health coach assistant. The user is customising one of their ${widget.category} tasks.
+
+Their context:
+- Goals: $goals
+- Activity level: ${widget.userProfile.activityLevel}
+- Sleep: ${widget.userProfile.sleepHours}
+- Diet: $diet
+
+Current task: "${widget.todo.task}"
+Current detail: "${widget.todo.detail}"
+User's request: "$prompt"
+
+Respond ONLY with a valid JSON object — no markdown, no preamble:
+{
+  "task": "Short replacement task label (max 8 words)",
+  "detail": "Brief extra detail or reason (max 12 words)"
+}
+''';
+
+      final response = await AIService.getRawCompletion(systemPrompt);
+      if (!mounted) return;
+
+      // Parse JSON
+      final clean = response
+          .replaceAll('```json', '')
+          .replaceAll('```', '')
+          .trim();
+      final startIdx = clean.indexOf('{');
+      final endIdx   = clean.lastIndexOf('}');
+      final jsonStr  = clean.substring(startIdx, endIdx + 1);
+      final parsed   = jsonDecode(jsonStr) as Map<String, dynamic>;
+
+      setState(() {
+        _aiSuggestedTask   = parsed['task']   as String?;
+        _aiSuggestedDetail = parsed['detail'] as String?;
+        _aiLoading         = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _aiError   = 'Could not get a suggestion: ${e.toString().replaceAll('Exception: ', '')}';
+        _aiLoading = false;
+      });
+    }
+  }
+
+  void _applyAISuggestion() {
+    if (_aiSuggestedTask == null) return;
+    _taskCtrl.text   = _aiSuggestedTask!;
+    _detailCtrl.text = _aiSuggestedDetail ?? '';
+    _tabCtrl.animateTo(0);
+    setState(() {
+      _aiSuggestedTask   = null;
+      _aiSuggestedDetail = null;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark   = Theme.of(context).brightness == Brightness.dark;
+    final cardCol  = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+    final txtColor = isDark ? Colors.white : const Color(0xFF1A1A2E);
+    final subColor = isDark ? Colors.grey[400]! : Colors.grey[600]!;
+    final fieldFill = isDark ? const Color(0xFF2A2A3E) : Colors.grey[50]!;
+    final borderCol = isDark ? Colors.white.withValues(alpha: 0.12) : Colors.grey[200]!;
+
+    final categoryEmoji = switch (widget.category) {
+      'nutrition' => '🥗',
+      'exercise'  => '💪',
+      _           => '😴',
+    };
+
+    return Padding(
+      padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        decoration: BoxDecoration(
+          color: cardCol,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ── Handle ──
+            const SizedBox(height: 12),
+            Center(
+              child: Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                    color: isDark ? Colors.white24 : Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Header ──
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Text(categoryEmoji,
+                      style: const TextStyle(fontSize: 22)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Edit Task',
+                            style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                color: txtColor)),
+                        Text('Customise or ask AI for a better fit.',
+                            style: TextStyle(
+                                fontSize: 12, color: subColor)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Tab bar ──
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Container(
+                height: 40,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.07)
+                      : Colors.grey[100],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: TabBar(
+                  controller: _tabCtrl,
+                  indicator: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF454D6E)
+                        : const Color(0xFF1A1A2E),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  dividerColor: Colors.transparent,
+                  labelColor: Colors.white,
+                  unselectedLabelColor: subColor,
+                  labelStyle: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w700),
+                  tabs: const [
+                    Tab(text: '✏️  Manual'),
+                    Tab(text: '✨  Ask AI'),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Tab views ──
+            SizedBox(
+              height: 260,
+              child: TabBarView(
+                controller: _tabCtrl,
+                children: [
+                  // ── Manual Edit tab ────────────────────
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Task',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? Colors.white70 : const Color(0xFF454D6E))),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: _taskCtrl,
+                          style: TextStyle(fontSize: 14, color: txtColor),
+                          maxLength: 80,
+                          decoration: InputDecoration(
+                            hintText: 'e.g. Drink 2.5 L of water today',
+                            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
+                            filled: true,
+                            fillColor: fieldFill,
+                            counterText: '',
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 12),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: borderCol)),
+                            enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: borderCol)),
+                            focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                    color: isDark
+                                        ? Colors.white54
+                                        : const Color(0xFF1A1A2E),
+                                    width: 1.5)),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Text('Detail / Note',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? Colors.white70 : const Color(0xFF454D6E))),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: _detailCtrl,
+                          style: TextStyle(fontSize: 14, color: txtColor),
+                          maxLength: 100,
+                          decoration: InputDecoration(
+                            hintText: 'Optional extra info or reason',
+                            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
+                            filled: true,
+                            fillColor: fieldFill,
+                            counterText: '',
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 12),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: borderCol)),
+                            enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: borderCol)),
+                            focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                    color: isDark
+                                        ? Colors.white54
+                                        : const Color(0xFF1A1A2E),
+                                    width: 1.5)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // ── Ask AI tab ─────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Describe what you want instead',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? Colors.white70 : const Color(0xFF454D6E))),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: _aiPromptCtrl,
+                          style: TextStyle(fontSize: 14, color: txtColor),
+                          maxLines: 3,
+                          decoration: InputDecoration(
+                            hintText:
+                                'e.g. "I prefer swimming over running" or "Make this easier for me"',
+                            hintStyle: TextStyle(
+                                color: Colors.grey[400],
+                                fontSize: 12,
+                                height: 1.4),
+                            filled: true,
+                            fillColor: fieldFill,
+                            contentPadding: const EdgeInsets.all(14),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: borderCol)),
+                            enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: borderCol)),
+                            focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                    color: isDark
+                                        ? Colors.white54
+                                        : const Color(0xFF1A1A2E),
+                                    width: 1.5)),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+
+                        if (_aiError != null)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text(_aiError!,
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.red.shade400)),
+                          ),
+
+                        if (_aiSuggestedTask != null) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF4CAF50)
+                                  .withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                  color: const Color(0xFF4CAF50)
+                                      .withValues(alpha: 0.3)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(children: [
+                                  const Icon(Icons.auto_awesome,
+                                      size: 13, color: Color(0xFF4CAF50)),
+                                  const SizedBox(width: 5),
+                                  Text('AI Suggestion',
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: isDark
+                                              ? const Color(0xFF81C784)
+                                              : const Color(0xFF388E3C))),
+                                ]),
+                                const SizedBox(height: 6),
+                                Text(_aiSuggestedTask!,
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: txtColor)),
+                                if (_aiSuggestedDetail != null &&
+                                    _aiSuggestedDetail!.isNotEmpty) ...[
+                                  const SizedBox(height: 3),
+                                  Text(_aiSuggestedDetail!,
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: subColor)),
+                                ],
+                                const SizedBox(height: 10),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed: _applyAISuggestion,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF4CAF50),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 10),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(10)),
+                                      elevation: 0,
+                                    ),
+                                    child: const Text('Use this suggestion',
+                                        style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ] else
+                          SizedBox(
+                            width: double.infinity,
+                            height: 44,
+                            child: ElevatedButton.icon(
+                              onPressed: _aiLoading ? null : _askAI,
+                              icon: _aiLoading
+                                  ? const SizedBox(
+                                      width: 14, height: 14,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white))
+                                  : const Icon(Icons.auto_awesome, size: 16),
+                              label: Text(
+                                _aiLoading
+                                    ? 'Thinking...'
+                                    : 'Get AI Suggestion',
+                                style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isDark
+                                    ? const Color(0xFF454D6E)
+                                    : const Color(0xFF1A1A2E),
+                                foregroundColor: Colors.white,
+                                disabledBackgroundColor:
+                                    isDark ? Colors.grey[800] : Colors.grey[300],
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                                elevation: 0,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // ── Save button ──
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+              child: SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () {
+                    final task   = _taskCtrl.text.trim();
+                    final detail = _detailCtrl.text.trim();
+                    if (task.isEmpty) return;
+                    widget.onSave(task, detail);
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isDark
+                        ? const Color(0xFF454D6E)
+                        : const Color(0xFF1A1A2E),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                    elevation: 0,
+                  ),
+                  child: const Text('Save Task',
+                      style: TextStyle(
+                          fontSize: 15, fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
