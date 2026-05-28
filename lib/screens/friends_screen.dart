@@ -3,6 +3,10 @@ import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../services/friends_service.dart';
 
+/// *** Contributions in the file: Dexter Logdonio, Raign Vincent Rueda ***
+
+/// Screen for managing friends: search by username, send/cancel requests, accept/decline
+
 class FriendsScreen extends StatefulWidget {
   const FriendsScreen({super.key});
 

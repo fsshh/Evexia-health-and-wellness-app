@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+/// *** Contributions in the file: Raign Vincent Rueda ***
+
 /// A simple ValueNotifier that toggles between light and dark ThemeMode.
 /// Wrap MaterialApp with a ValueListenableBuilder on this to react globally.
 class ThemeNotifier extends ValueNotifier<ThemeMode> {

@@ -14,7 +14,8 @@ const _dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 int _todayIndex() => DateTime.now().weekday - 1; // 0=Mon … 6=Sun
 
-// ─── EXP / Level system ───────────────────────────────────
+// *** Contributions in the following functions: Raign Vincent Rueda, Dexter Logdonio, Acier Jan Andres ***
+// --------------------- EXP / Level system ------------------------------
 const int _expPerDone   =  3;
 const int _expPerMissed = -1;
 
@@ -101,7 +102,9 @@ Color _rankColor(int level) {
   return const Color(0xFFCD7F32);
 }
 
-// ─────────────────────────────────────────────────────────
+// --------------------- EXP / Level system End ------------------------------
+
+
 class DashboardScreen extends StatefulWidget {
   final UserProfile userProfile;
   final int savedTotalExp;
@@ -256,7 +259,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   /// Finalize week: save report, reset tasks, bump week number, show animations.
-  /// [devMode] makes the summary modal dismissible (for dev tool testing).
+  /// devMode makes the summary modal dismissible (for dev tool testing).
   Future<void> _finalizeWeek({bool auto = false, bool devMode = false}) async {
     if (_recommendations == null) return;
 
@@ -520,7 +523,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  /// DEV: jumps totalExp to [targetLevel] and triggers level-up + AI refresh.
+  /// DEV: jumps totalExp to targetLevel and triggers level-up + AI refresh.
   void _devSetLevel(int targetLevel) {
     // Set EXP to 1 past the boundary so _levelFromExp resolves unambiguously
     final newExp = _totalExpForLevel(targetLevel) + 1;
@@ -746,6 +749,9 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
+///-----------------------------------------------------
+/// *** Contributions in the following UI and functions: Dexter Logdonio, Andrei Deseo, Raign Vincent Rueda *** 
+///-----------------------------------------------------
   @override
   Widget build(BuildContext context) {
     final isDark      = Theme.of(context).brightness == Brightness.dark;
@@ -1197,6 +1203,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 }
 
+
+
+
 // ─────────────────────────────────────────────────────────
 // Week Report Modal (bottom sheet shown at week end)
 // ─────────────────────────────────────────────────────────
@@ -1448,6 +1457,8 @@ class _ClaimDayButton extends StatelessWidget {
     );
   }
 }
+
+
 
 // ─────────────────────────────────────────────────────────
 // EXP / Level card

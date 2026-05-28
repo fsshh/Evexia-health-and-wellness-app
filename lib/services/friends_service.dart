@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+// *** Contributions in the file: Dexter Logdonio, Raign Vincent Rueda ***
 // ─────────────────────────────────────────────────────────
 // Firestore schema for friends
 // ─────────────────────────────────────────────────────────
@@ -40,7 +41,7 @@ class FriendsService {
 
   // ── Friend Requests ───────────────────────────────────
 
-  /// Send a friend request from [uid] to [toUid].
+  /// Send a friend request
   static Future<void> sendFriendRequest({
     required String uid,
     required String toUid,
@@ -61,7 +62,7 @@ class FriendsService {
     });
   }
 
-  /// Cancel / withdraw a friend request that [uid] sent to [toUid].
+  /// Cancel / withdraw a friend request
   static Future<void> cancelFriendRequest({
     required String uid,
     required String toUid,
@@ -74,7 +75,7 @@ class FriendsService {
         .delete();
   }
 
-  /// Accept a friend request: [uid] accepts request from [fromUid].
+  /// Accept a friend request
   static Future<void> acceptFriendRequest({
     required String uid,
     required String fromUid,
@@ -100,7 +101,7 @@ class FriendsService {
     await batch.commit();
   }
 
-  /// Decline a friend request: [uid] declines request from [fromUid].
+  /// Decline a friend request
   static Future<void> declineFriendRequest({
     required String uid,
     required String fromUid,
@@ -113,8 +114,8 @@ class FriendsService {
         .delete();
   }
 
-  /// Get all pending incoming friend requests for [uid].
-  
+  /// Get all pending incoming friend requests for uid
+
 static Future<List<Map<String, dynamic>>> getPendingRequests(String uid) async {
   final snap = await _db
       .collection('users')
@@ -134,7 +135,7 @@ static Future<List<Map<String, dynamic>>> getPendingRequests(String uid) async {
   return docs;
 }
 
-  /// Check if [uid] has already sent a request to [toUid] (pending).
+  /// Check if uid has already sent a request to toUid (pending).
   static Future<bool> hasPendingRequestTo({
     required String uid,
     required String toUid,
@@ -150,7 +151,7 @@ static Future<List<Map<String, dynamic>>> getPendingRequests(String uid) async {
 
   // ── Friends ───────────────────────────────────────────
 
-  /// Remove a friend (both directions).
+  /// Remove a friend (both users).
   static Future<void> removeFriend(String uid, String friendUid) async {
     final batch = _db.batch();
 
@@ -160,7 +161,7 @@ static Future<List<Map<String, dynamic>>> getPendingRequests(String uid) async {
     await batch.commit();
   }
 
-  /// Get all friends of a user with their full profile data.
+  /// Get all friends of a user with their full profile data
   static Future<List<Map<String, dynamic>>> getFriends(String uid) async {
     final friendDocs = await _db
         .collection('users')

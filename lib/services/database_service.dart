@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_profile.dart';
 
+/// *** Contributions in the file: Dexter Logdonio, Raign Vincent Rueda ***
+
 // ─────────────────────────────────────────────────────────
 // Firestore schema
 // ─────────────────────────────────────────────────────────
@@ -216,7 +218,7 @@ class DatabaseService {
     return result?['recommendations'] as List<AIRecommendation>?;
   }
 
-  /// Loads recommendations AND claimedDays for a given week.
+  /// Loads recommendations and claimedDays for a given week.
   static Future<Map<String, dynamic>?> loadWeekDataFull({
     required String uid,
     required int weekNumber,

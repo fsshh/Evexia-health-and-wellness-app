@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'onboarding_screen.dart';
 import 'login_screen.dart';
 
+// *** Contributions in the file: Acier Jan Andres, Andrei Deseo ***
+
 // ── Design System ──────────────────────────────────────────
 class _C {
   static const navyDark  = Color(0xFF2E3450);

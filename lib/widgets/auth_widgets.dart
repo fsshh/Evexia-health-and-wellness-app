@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+/// *** Contributions in the file: Dexter Logdonio, Raign Vincent Rueda ***
+
 class ErrorBanner extends StatelessWidget {
   final String message;
   const ErrorBanner({super.key, required this.message});

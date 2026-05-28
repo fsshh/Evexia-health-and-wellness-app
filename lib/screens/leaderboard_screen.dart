@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/friends_service.dart';
 
+/// *** Contributions in the file: Acier Jan Andres, Andrei Deseo ***
+
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
 

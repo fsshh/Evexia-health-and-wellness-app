@@ -4,6 +4,8 @@ import '../services/database_service.dart';
 import '../services/friends_service.dart';
 import 'welcome_screen.dart';
 
+/// *** Contributions in the file: Raign Vincent Rueda, Dexter Logdonio ***
+
 class ProfileScreen extends StatefulWidget {
   final int totalExp;
   final int weekNumber;

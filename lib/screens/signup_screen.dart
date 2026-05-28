@@ -4,6 +4,8 @@ import '../services/database_service.dart';
 import '../widgets/auth_widgets.dart';
 import 'onboarding_screen.dart';
 
+/// *** Contributions in the file: Andrei Deseo ***
+
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
 

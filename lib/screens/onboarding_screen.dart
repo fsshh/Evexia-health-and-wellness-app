@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'goals_screen.dart';
 
+/// *** Contributions in the file: Acier Jan Andres, Andrei Deseo ***
+
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 

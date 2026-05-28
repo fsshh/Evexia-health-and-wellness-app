@@ -7,6 +7,8 @@ import 'dashboard_screen.dart';
 import '../widgets/auth_widgets.dart';
 import 'signup_screen.dart';
 
+/// *** Contributions in the file: Dexter Logdonio , Raign Vincent Rueda ***
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 

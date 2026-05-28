@@ -4,6 +4,9 @@ import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import 'dashboard_screen.dart';
 
+/// *** Contributions in the file: Acier Jan Andres ***
+/// The GoalsScreen is a survey that collects the user's health goals, struggles, habits, and
+
 class GoalsScreen extends StatefulWidget {
   const GoalsScreen({super.key});
 

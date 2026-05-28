@@ -7,6 +7,8 @@ import 'welcome_screen.dart';
 import 'onboarding_screen.dart';
 import 'dashboard_screen.dart';
 
+/// *** Contributions in the file: Dexter Logdonio, Raign Vincent Rueda ***
+
 /// Listens to Firebase auth state and routes accordingly:
 ///   - Not logged in  → WelcomeScreen
 ///   - Logged in, no survey → OnboardingScreen
