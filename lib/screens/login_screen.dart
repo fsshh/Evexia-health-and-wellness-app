@@ -74,8 +74,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark  = Theme.of(context).brightness == Brightness.dark;
+    final bg      = isDark ? const Color(0xFF0F0F1A) : const Color(0xFFF1EFEE);
+    final txt     = isDark ? Colors.white : const Color(0xFF454D6E);
+    final subTxt  = isDark ? Colors.grey[400]! : Colors.grey[500]!;
+    final btnBg   = isDark ? const Color(0xFF5C6491) : const Color(0xFF454D6E);
+    final linkTxt = isDark ? const Color(0xFF9BA3D4) : const Color(0xFF454D6E);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF1EFEE),
+      backgroundColor: bg,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -84,16 +91,16 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const SizedBox(height: 60),
               IconButton(
-                icon: const Icon(Icons.arrow_back_ios, size: 18, color: Color(0xFF454D6E)),
+                icon: Icon(Icons.arrow_back_ios, size: 18, color: txt),
                 onPressed: () => Navigator.pop(context),
                 padding: EdgeInsets.zero,
               ),
               const SizedBox(height: 24),
-              const Text('Welcome back',
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: Color(0xFF454D6E))),
+              Text('Welcome back',
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: txt)),
               const SizedBox(height: 6),
               Text('Sign in to continue your health journey.',
-                  style: TextStyle(fontSize: 15, color: Colors.grey[500])),
+                  style: TextStyle(fontSize: 15, color: subTxt)),
               const SizedBox(height: 40),
 
               if (_error != null) ...[
@@ -131,9 +138,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: ElevatedButton(
                   onPressed: _loading ? null : _login,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF454D6E),
+                    backgroundColor: btnBg,
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.grey[300],
+                    disabledBackgroundColor: isDark ? Colors.grey[800] : Colors.grey[300],
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     elevation: 0,
                   ),
@@ -153,11 +160,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: RichText(
                     text: TextSpan(
                       text: "Don't have an account? ",
-                      style: TextStyle(color: Colors.grey[500], fontSize: 14),
-                      children: const [
+                      style: TextStyle(color: subTxt, fontSize: 14),
+                      children: [
                         TextSpan(text: 'Sign up',
-                            style: TextStyle(
-                                color: Color(0xFF454D6E), fontWeight: FontWeight.w700)),
+                            style: TextStyle(color: linkTxt, fontWeight: FontWeight.w700)),
                       ],
                     ),
                   ),

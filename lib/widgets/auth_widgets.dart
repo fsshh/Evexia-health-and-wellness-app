@@ -6,21 +6,25 @@ class ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.red.shade50,
+        color: isDark ? Colors.red.shade900.withValues(alpha: 0.4) : Colors.red.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.red.shade100),
+        border: Border.all(color: isDark ? Colors.red.shade800 : Colors.red.shade100),
       ),
       child: Row(
         children: [
-          Icon(Icons.error_outline_rounded, color: Colors.red.shade400, size: 18),
+          Icon(Icons.error_outline_rounded,
+              color: isDark ? Colors.red.shade300 : Colors.red.shade400, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(message,
-                style: TextStyle(color: Colors.red.shade700, fontSize: 13)),
+                style: TextStyle(
+                    color: isDark ? Colors.red.shade200 : Colors.red.shade700,
+                    fontSize: 13)),
           ),
         ],
       ),
@@ -39,7 +43,7 @@ class FieldLabel extends StatelessWidget {
         style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: isDark ? Colors.white : const Color(0xFF1A1A2E)));
+            color: isDark ? Colors.white70 : const Color(0xFF454D6E)));
   }
 }
 
@@ -77,7 +81,7 @@ class InputField extends StatelessWidget {
         hintStyle: TextStyle(color: Colors.grey[400]),
         suffixIcon: suffix,
         filled: true,
-        fillColor: isDark ? const Color(0xFF2A2A3E) : Colors.grey[50],
+        fillColor: isDark ? const Color(0xFF1E1E2E) : Colors.grey[50],
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(

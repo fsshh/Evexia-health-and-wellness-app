@@ -480,9 +480,12 @@ class _DashboardScreenState extends State<DashboardScreen>
       return Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.red.shade50,
+          color: isDark
+              ? Colors.red.shade900.withValues(alpha: 0.25)
+              : Colors.red.shade50,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.red.shade100),
+          border: Border.all(
+              color: isDark ? Colors.red.shade800 : Colors.red.shade100),
         ),
         child: Column(
           children: [
@@ -491,8 +494,9 @@ class _DashboardScreenState extends State<DashboardScreen>
             Text(
               'Could not load recommendations.\nPlease check your connection and try again.',
               textAlign: TextAlign.center,
-              style:
-                  TextStyle(color: Colors.red.shade700, fontSize: 14),
+              style: TextStyle(
+                  color: isDark ? Colors.red.shade300 : Colors.red.shade700,
+                  fontSize: 14),
             ),
             const SizedBox(height: 14),
             TextButton.icon(
@@ -500,7 +504,9 @@ class _DashboardScreenState extends State<DashboardScreen>
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Retry'),
               style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF1A1A2E)),
+                  foregroundColor: isDark
+                      ? Colors.red.shade300
+                      : const Color(0xFF1A1A2E)),
             ),
           ],
         ),
@@ -567,14 +573,16 @@ class _DashboardScreenState extends State<DashboardScreen>
               Text(user?.email ?? '',
                   style: TextStyle(fontSize: 13, color: Colors.grey[500])),
               const SizedBox(height: 24),
-              Divider(color: Colors.grey[100]),
+              Divider(color: isDark ? Colors.white12 : Colors.grey[100]),
               const SizedBox(height: 12),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Container(
                     width: 40, height: 40,
                     decoration: BoxDecoration(
-                        color: Colors.red.shade50,
+                        color: isDark
+                            ? Colors.red.shade900.withValues(alpha: 0.3)
+                            : Colors.red.shade50,
                         borderRadius: BorderRadius.circular(10)),
                     child: Icon(Icons.logout_rounded,
                         color: Colors.red.shade400, size: 20)),
@@ -968,16 +976,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                           const Text('🎉',
                               style: TextStyle(fontSize: 56)),
                           const SizedBox(height: 12),
-                          const Text('LEVEL UP!',
+                          Text('LEVEL UP!',
                               style: TextStyle(
                                   fontSize: 28,
                                   fontWeight: FontWeight.w900,
-                                  color: Color(0xFF1A1A2E),
+                                  color: isDark ? Colors.white : const Color(0xFF1A1A2E),
                                   letterSpacing: 2)),
                           const SizedBox(height: 8),
                           Text('You reached Level $_levelUpTo',
                               style: TextStyle(
-                                  fontSize: 16, color: Colors.grey[600])),
+                                  fontSize: 16, color: Colors.grey[isDark ? 400 : 600])),
                           const SizedBox(height: 12),
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -1051,7 +1059,7 @@ class _WeekReportModal extends StatelessWidget {
           Container(
               width: 40, height: 4,
               decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: isDark ? Colors.white24 : Colors.grey[300],
                   borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 20),
 
@@ -1099,7 +1107,7 @@ class _WeekReportModal extends StatelessWidget {
             child: LinearProgressIndicator(
               value: pct,
               minHeight: 10,
-              backgroundColor: Colors.grey[200],
+              backgroundColor: isDark ? Colors.white12 : Colors.grey[200],
               valueColor: AlwaysStoppedAnimation<Color>(
                 pct >= 0.8
                     ? const Color(0xFF4CAF50)
@@ -1209,6 +1217,7 @@ class _ClaimDayButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark  = Theme.of(context).brightness == Brightness.dark;
     final dayName = _dayNames[todayIndex];
 
     if (alreadyClaimed) {
@@ -1252,8 +1261,8 @@ class _ClaimDayButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color.fromARGB(255, 121, 121, 255),
           foregroundColor: Colors.white,
-          disabledBackgroundColor: Colors.grey[300],
-          disabledForegroundColor: Colors.black45,
+          disabledBackgroundColor: isDark ? const Color(0xFF2A2A3E) : Colors.grey[300],
+          disabledForegroundColor: isDark ? Colors.white30 : Colors.black45,
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14)),
           elevation: 0,
@@ -1474,10 +1483,14 @@ class _RecommendationSectionState
 
   @override
   Widget build(BuildContext context) {
-    final cardColor = widget.isDark
-        ? const Color(0xFF1E1E2E)
-        : Colors.white;
-    final txtColor = widget.isDark ? Colors.white : const Color(0xFF1A1A2E);
+    final cardColor  = widget.isDark ? const Color(0xFF1E1E2E) : Colors.white;
+    final txtColor   = widget.isDark ? Colors.white : const Color(0xFF1A1A2E);
+    final summaryColor = widget.isDark ? Colors.grey[400]! : Colors.grey[600]!;
+    final dividerColor = widget.isDark ? Colors.white.withValues(alpha: 0.07) : Colors.grey[100]!;
+    final progressBg   = widget.isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey[100]!;
+    final iconBg       = widget.isDark
+        ? widget.iconColor.withValues(alpha: 0.15)
+        : widget.bgColor;
 
     final doneCount  = widget.rec.todos
         .expand((t) => t.days)
@@ -1515,7 +1528,7 @@ class _RecommendationSectionState
                       Container(
                         width: 44, height: 44,
                         decoration: BoxDecoration(
-                            color: widget.bgColor,
+                            color: iconBg,
                             borderRadius: BorderRadius.circular(12)),
                         child: Icon(widget.icon,
                             color: widget.iconColor, size: 22),
@@ -1535,7 +1548,7 @@ class _RecommendationSectionState
                             Text(widget.rec.summary,
                                 style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.grey[600],
+                                    color: summaryColor,
                                     height: 1.3)),
                           ],
                         ),
@@ -1561,7 +1574,7 @@ class _RecommendationSectionState
                           child: LinearProgressIndicator(
                             value: progress,
                             minHeight: 6,
-                            backgroundColor: Colors.grey[100],
+                            backgroundColor: progressBg,
                             valueColor: AlwaysStoppedAnimation<Color>(
                                 widget.accentColor),
                           ),
@@ -1587,7 +1600,7 @@ class _RecommendationSectionState
                 : CrossFadeState.showSecond,
             firstChild: Column(
               children: [
-                Divider(height: 1, color: Colors.grey[100]),
+                Divider(height: 1, color: dividerColor),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
                   child: Row(
@@ -1663,17 +1676,31 @@ class _TodoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final txtColor       = isDark ? Colors.white : const Color(0xFF1A1A2E);
+    final dividerColor   = isDark ? Colors.white.withValues(alpha: 0.07) : Colors.grey[100]!;
     final doneThisWeek   =
         todo.days.where((d) => d == DayState.done).length;
     final missedThisWeek =
         todo.days.where((d) => d == DayState.missed).length;
 
+    // Day circle backgrounds for neutral/future states
+    final neutralBg     = isDark ? const Color(0xFF2A2A3E) : Colors.white;
+    final futureBg      = isDark ? const Color(0xFF1A1A2E) : Colors.grey.shade50;
+    final futureBorder  = isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade200;
+    final futureIcon    = isDark ? Colors.white.withValues(alpha: 0.15) : Colors.grey.shade300;
+    final pastNeutralBg = isDark ? const Color(0xFF2A2A3E) : Colors.grey.shade100;
+    final pastNeutralBorder = isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade300;
+    final pastNeutralIcon   = isDark ? Colors.white.withValues(alpha: 0.2) : Colors.grey.shade400;
+    final doneBadgeBg   = doneThisWeek > 0
+        ? accentColor.withValues(alpha: 0.1)
+        : (isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey[100]!);
+    final doneBadgeTxt  = doneThisWeek > 0 ? accentColor : Colors.grey[400]!;
+    final missedBadgeBg = isDark ? Colors.red.shade900.withValues(alpha: 0.35) : Colors.red.shade50;
+
     return Container(
       decoration: BoxDecoration(
         border: isLast
             ? null
-            : Border(
-                bottom: BorderSide(color: Colors.grey[100]!, width: 1)),
+            : Border(bottom: BorderSide(color: dividerColor, width: 1)),
       ),
       padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
       child: Row(
@@ -1704,18 +1731,14 @@ class _TodoRow extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: doneThisWeek > 0
-                            ? accentColor.withValues(alpha: 0.1)
-                            : Colors.grey[100],
+                        color: doneBadgeBg,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text('✓ $doneThisWeek',
                           style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
-                              color: doneThisWeek > 0
-                                  ? accentColor
-                                  : Colors.grey[400])),
+                              color: doneBadgeTxt)),
                     ),
                     if (missedThisWeek > 0) ...[
                       const SizedBox(width: 4),
@@ -1723,7 +1746,7 @@ class _TodoRow extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.red.shade50,
+                          color: missedBadgeBg,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text('✗ $missedThisWeek',
@@ -1754,12 +1777,11 @@ class _TodoRow extends StatelessWidget {
                     margin: const EdgeInsets.symmetric(horizontal: 1),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.grey.shade50,
-                      border: Border.all(
-                          color: Colors.grey.shade200, width: 1.5),
+                      color: futureBg,
+                      border: Border.all(color: futureBorder, width: 1.5),
                     ),
                     child: Icon(Icons.lock_outline_rounded,
-                        size: 11, color: Colors.grey.shade300),
+                        size: 11, color: futureIcon),
                   ),
                 );
               }
@@ -1781,10 +1803,10 @@ class _TodoRow extends StatelessWidget {
                     child = const Icon(Icons.close_rounded,
                         size: 13, color: Colors.white);
                   case DayState.neutral:
-                    bgColor     = Colors.grey.shade100;
-                    borderColor = Colors.grey.shade300;
+                    bgColor     = pastNeutralBg;
+                    borderColor = pastNeutralBorder;
                     child = Icon(Icons.lock_rounded,
-                        size: 11, color: Colors.grey.shade400);
+                        size: 11, color: pastNeutralIcon);
                 }
 
                 return Tooltip(
@@ -1796,8 +1818,7 @@ class _TodoRow extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: bgColor,
-                      border:
-                          Border.all(color: borderColor, width: 1.5),
+                      border: Border.all(color: borderColor, width: 1.5),
                     ),
                     child: Center(child: child),
                   ),
@@ -1821,7 +1842,7 @@ class _TodoRow extends StatelessWidget {
                   icon = const Icon(Icons.close_rounded,
                       size: 13, color: Colors.white);
                 case DayState.neutral:
-                  bgColor     = Colors.white;
+                  bgColor     = neutralBg;
                   borderColor = accentColor;
                   icon        = null;
               }
@@ -1831,8 +1852,7 @@ class _TodoRow extends StatelessWidget {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
                   width: 28, height: 28,
-                  margin:
-                      const EdgeInsets.symmetric(horizontal: 1),
+                  margin: const EdgeInsets.symmetric(horizontal: 1),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: bgColor,
@@ -1840,13 +1860,10 @@ class _TodoRow extends StatelessWidget {
                         color: borderColor,
                         width: isToday ? 2 : 1.5),
                     boxShadow: isToday
-                        ? [
-                            BoxShadow(
-                                color:
-                                    accentColor.withValues(alpha: 0.35),
-                                blurRadius: 6,
-                                spreadRadius: 1)
-                          ]
+                        ? [BoxShadow(
+                              color: accentColor.withValues(alpha: 0.35),
+                              blurRadius: 6,
+                              spreadRadius: 1)]
                         : null,
                   ),
                   child: Center(child: icon),
@@ -1895,12 +1912,19 @@ class _SkeletonCardState extends State<_SkeletonCard>
         height: height,
         width: width,
         decoration: BoxDecoration(
-            color: Colors.grey[200],
+            color: _isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey[200],
             borderRadius: BorderRadius.circular(4)),
       );
 
+  bool get _isDark =>
+      Theme.of(context).brightness == Brightness.dark;
+
   @override
   Widget build(BuildContext context) {
+    final isDark     = _isDark;
+    final cardColor  = isDark ? const Color(0xFF1E1E2E) : Colors.white;
+    final shimmerBg  = isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey[200]!;
+
     return AnimatedBuilder(
       animation: _anim,
       builder: (_, __) => Opacity(
@@ -1909,7 +1933,7 @@ class _SkeletonCardState extends State<_SkeletonCard>
           margin: const EdgeInsets.only(bottom: 16),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cardColor,
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
@@ -1925,7 +1949,7 @@ class _SkeletonCardState extends State<_SkeletonCard>
                 Container(
                     width: 44, height: 44,
                     decoration: BoxDecoration(
-                        color: Colors.grey[200],
+                        color: shimmerBg,
                         borderRadius: BorderRadius.circular(12))),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1965,7 +1989,7 @@ class _SkeletonCardState extends State<_SkeletonCard>
                                                 horizontal: 1),
                                             decoration: BoxDecoration(
                                                 shape: BoxShape.circle,
-                                                color: Colors.grey[200]),
+                                                color: shimmerBg),
                                           ))),
                         ]),
                       )),

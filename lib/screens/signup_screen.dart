@@ -110,9 +110,13 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg     = isDark ? const Color(0xFF2A2D3E) : const Color(0xFFF1EFEE);
-    final txt    = isDark ? Colors.white : const Color(0xFF454D6E);
+    final isDark   = Theme.of(context).brightness == Brightness.dark;
+    final bg       = isDark ? const Color(0xFF0F0F1A) : const Color(0xFFF1EFEE);
+    final txt      = isDark ? Colors.white : const Color(0xFF454D6E);
+    final subTxt   = isDark ? Colors.grey[400]! : Colors.grey[500]!;
+    final hintTxt  = isDark ? Colors.grey[500]! : Colors.grey[500]!;
+    final btnBg    = isDark ? const Color(0xFF5C6491) : const Color(0xFF454D6E);
+    final linkTxt  = isDark ? const Color(0xFF9BA3D4) : const Color(0xFF454D6E);
 
     return Scaffold(
       backgroundColor: bg,
@@ -134,7 +138,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: txt)),
               const SizedBox(height: 6),
               Text('Start your personalised health journey.',
-                  style: TextStyle(fontSize: 15, color: Colors.grey[500])),
+                  style: TextStyle(fontSize: 15, color: subTxt)),
               const SizedBox(height: 40),
 
               if (_error != null) ...[
@@ -146,7 +150,7 @@ class _SignupScreenState extends State<SignupScreen> {
               const FieldLabel('Username'),
               const SizedBox(height: 4),
               Text('Letters, numbers, "." and "_" only. No spaces.',
-                  style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                  style: TextStyle(fontSize: 11, color: hintTxt)),
               const SizedBox(height: 8),
               InputField(
                 controller: _usernameCtrl,
@@ -163,8 +167,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 onChanged: (v) {
                   if (v.length >= 3) {
                     _checkUsername(v);
-                  }
-                  else {
+                  } else {
                     setState(() => _usernameError = null);
                   }
                 },
@@ -237,9 +240,9 @@ class _SignupScreenState extends State<SignupScreen> {
                 child: ElevatedButton(
                   onPressed: _loading ? null : _signUp,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF454D6E),
+                    backgroundColor: btnBg,
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.grey[300],
+                    disabledBackgroundColor: isDark ? Colors.grey[800] : Colors.grey[300],
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     elevation: 0,
                   ),
@@ -258,11 +261,10 @@ class _SignupScreenState extends State<SignupScreen> {
                   child: RichText(
                     text: TextSpan(
                       text: 'Already have an account? ',
-                      style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                      style: TextStyle(color: subTxt, fontSize: 14),
                       children: [
                         TextSpan(text: 'Sign in',
-                            style: TextStyle(
-                                color: txt, fontWeight: FontWeight.w700)),
+                            style: TextStyle(color: linkTxt, fontWeight: FontWeight.w700)),
                       ],
                     ),
                   ),
