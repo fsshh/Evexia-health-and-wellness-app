@@ -3,9 +3,9 @@ import '../models/user_profile.dart';
 
 /// *** Contributions in the file: Dexter Logdonio, Raign Vincent Rueda ***
 
-// ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------
 // Firestore schema
-// ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------
 // users/{uid}
 //   displayName, username, email, createdAt, totalExp, weekNumber,
 //   weekStartTimestamp
@@ -26,12 +26,12 @@ import '../models/user_profile.dart';
 // users/{uid}/weekReports/week_{N}
 //   weekNumber, weekStart, weekEnd, totalTasks, doneTasks,
 //   missedTasks, expEarned, commendation, createdAt
-// ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------
 
 class DatabaseService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // ── Helpers ───────────────────────────────────────────
+  // -- Helpers -------------------------------------------
 
   static int _encodeDay(DayState s) {
     switch (s) {
@@ -49,7 +49,7 @@ class DatabaseService {
     }
   }
 
-  // ── Username uniqueness ───────────────────────────────
+  // -- Username uniqueness -------------------------------
 
   /// Returns true if the username is available (not taken).
   static Future<bool> isUsernameAvailable(String username) async {
@@ -69,7 +69,7 @@ class DatabaseService {
     return null;
   }
 
-  // ── User profile ──────────────────────────────────────
+  // -- User profile --------------------------------------
 
   /// Creates the user document and reserves the username atomically.
   static Future<void> createUserProfile({
@@ -121,7 +121,7 @@ class DatabaseService {
     });
   }
 
-  // ── Survey ────────────────────────────────────────────
+  // -- Survey --------------------------------------------
 
   static Future<void> saveSurvey({
     required String uid,
@@ -167,7 +167,7 @@ class DatabaseService {
     );
   }
 
-  // ── Weekly todo data ──────────────────────────────────
+  // -- Weekly todo data ----------------------------------
 
   static Future<void> saveWeekData({
     required String uid,
@@ -272,7 +272,7 @@ class DatabaseService {
     };
   }
 
-  // ── Week Reports ──────────────────────────────────────
+  // -- Week Reports --------------------------------------
 
   /// Saves a weekly performance report when the week is finalized.
   static Future<void> saveWeekReport({

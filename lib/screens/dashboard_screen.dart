@@ -828,11 +828,11 @@ class _DashboardScreenState extends State<DashboardScreen>
           body: IndexedStack(
             index: _selectedIndex,
             children: [
-              // ── Tab 0: Home ───────────────────────────
+              // -- Tab 0: Home ---------------------------
               SafeArea(
                 child: Column(
                   children: [
-                    // ── Header ───────────────────────────
+                    // -- Header ---------------------------
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                       child: Row(
@@ -895,7 +895,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           children: [
                             const SizedBox(height: 8),
 
-                            // ── EXP Card ──────────────────────
+                            // -- EXP Card ----------------------
                             _ExpCard(
                               level:       currentLevel,
                               expInLevel:  expInLevel,
@@ -910,7 +910,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                             const SizedBox(height: 20),
 
-                            // ── Survey chips ───────────────────
+                            // -- Survey chips -------------------
                             Wrap(
                               spacing: 8, runSpacing: 8,
                               children: [
@@ -932,7 +932,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                             const SizedBox(height: 20),
 
-                            // ── Weekly Plan header ─────────────
+                            // -- Weekly Plan header -------------
                             Row(
                               children: [
                                 Text('Your Weekly Plan',
@@ -1024,7 +1024,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                             _buildRecommendationsList(isDark),
 
-                            // ── Claim Today button ─────────────
+                            // -- Claim Today button -------------
                             if (!_isLoading && _error == null) ...[
                               const SizedBox(height: 8),
                               _ClaimDayButton(
@@ -1044,13 +1044,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
               ),
 
-              // ── Tab 1: Friends ────────────────────────
+              // -- Tab 1: Friends ------------------------
               const FriendsScreen(),
 
-              // ── Tab 2: Leaderboard ────────────────────
+              // -- Tab 2: Leaderboard --------------------
               const LeaderboardScreen(),
 
-              // ── Tab 3: Profile ────────────────────────
+              // -- Tab 3: Profile ------------------------
               ProfileScreen(
                 totalExp:         _totalExp,
                 weekNumber:       _weekNumber,
@@ -1061,7 +1061,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
         ),
 
-        // ── "New tasks this week!" overlay ────────────
+        // -- "New tasks this week!" overlay ------------
         if (_showNewWeek)
           Positioned(
             top: MediaQuery.of(context).padding.top + 70,
@@ -1113,7 +1113,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             ),
           ),
 
-        // ── Level-up overlay ─────────────────────────
+        // -- Level-up overlay -------------------------
         if (_showLevelUp)
           Positioned.fill(
             child: GestureDetector(
@@ -1206,9 +1206,9 @@ class _DashboardScreenState extends State<DashboardScreen>
 
 
 
-// ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------
 // Week Report Modal (bottom sheet shown at week end)
-// ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------
 class _WeekReportModal extends StatelessWidget {
   final int weekNumber;
   final int totalTasks;
@@ -1380,9 +1380,9 @@ class _ReportStat extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------
 // Claim Day Button
-// ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------
 class _ClaimDayButton extends StatelessWidget {
   final int todayIndex;
   final int todayExp;
@@ -1460,9 +1460,9 @@ class _ClaimDayButton extends StatelessWidget {
 
 
 
-// ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------
 // EXP / Level card
-// ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------
 class _ExpCard extends StatelessWidget {
   final int level;
   final int expInLevel;
@@ -1633,9 +1633,9 @@ class _ExpCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------
 // Recommendation Section
-// ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------
 class _RecommendationSection extends StatefulWidget {
   final AIRecommendation rec;
   final int recIndex;
@@ -1844,9 +1844,9 @@ class _RecommendationSectionState
   }
 }
 
-// ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------
 // Todo row
-// ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------
 class _TodoRow extends StatelessWidget {
   final TodoItem todo;
   final Color accentColor;
@@ -2090,9 +2090,9 @@ class _TodoRow extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------
 // Skeleton loader
-// ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------
 class _SkeletonCard extends StatefulWidget {
   const _SkeletonCard();
   @override
@@ -2214,9 +2214,9 @@ class _SkeletonCardState extends State<_SkeletonCard>
   }
 }
 
-// ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------
 // Survey chip
-// ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------
 class _SurveyChip extends StatelessWidget {
   final String label;
   final IconData icon;
@@ -2257,9 +2257,9 @@ class _SurveyChip extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------
 // Bottom nav item
-// ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------
 class _NavItem extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -2303,10 +2303,10 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------
 // Edit Todo Sheet
 // Two tabs: Manual edit | Ask AI for a suggestion
-// ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------
 class _EditTodoSheet extends StatefulWidget {
   final TodoItem todo;
   final String category;
@@ -2455,7 +2455,7 @@ Respond ONLY with a valid JSON object — no markdown, no preamble:
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ── Handle ──
+            // -- Handle --
             const SizedBox(height: 12),
             Center(
               child: Container(
@@ -2467,7 +2467,7 @@ Respond ONLY with a valid JSON object — no markdown, no preamble:
             ),
             const SizedBox(height: 16),
 
-            // ── Header ──
+            // -- Header --
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
@@ -2495,7 +2495,7 @@ Respond ONLY with a valid JSON object — no markdown, no preamble:
             ),
             const SizedBox(height: 16),
 
-            // ── Tab bar ──
+            // -- Tab bar --
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Container(
@@ -2529,13 +2529,13 @@ Respond ONLY with a valid JSON object — no markdown, no preamble:
             ),
             const SizedBox(height: 16),
 
-            // ── Tab views ──
+            // -- Tab views --
             SizedBox(
               height: 260,
               child: TabBarView(
                 controller: _tabCtrl,
                 children: [
-                  // ── Manual Edit tab ────────────────────
+                  // -- Manual Edit tab --------------------
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
@@ -2612,7 +2612,7 @@ Respond ONLY with a valid JSON object — no markdown, no preamble:
                     ),
                   ),
 
-                  // ── Ask AI tab ─────────────────────────
+                  // -- Ask AI tab -------------------------
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
@@ -2768,7 +2768,7 @@ Respond ONLY with a valid JSON object — no markdown, no preamble:
               ),
             ),
 
-            // ── Save button ──
+            // -- Save button --
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
               child: SizedBox(

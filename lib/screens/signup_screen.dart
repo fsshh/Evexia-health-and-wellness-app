@@ -148,7 +148,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 const SizedBox(height: 20),
               ],
 
-              // ── Username (required) ──────────────────
+              // -- Username (required) ------------------
               const FieldLabel('Username'),
               const SizedBox(height: 4),
               Text('Letters, numbers, "." and "_" only. No spaces.',
@@ -181,7 +181,7 @@ class _SignupScreenState extends State<SignupScreen> {
               ],
               const SizedBox(height: 20),
 
-              // ── Full Name (optional) ──────────────────
+              // -- Full Name (optional) ------------------
               Row(children: [
                 const FieldLabel('Full Name'),
                 const SizedBox(width: 6),
@@ -193,7 +193,7 @@ class _SignupScreenState extends State<SignupScreen> {
               InputField(controller: _nameCtrl, hint: 'Jane Doe'),
               const SizedBox(height: 20),
 
-              // ── Email ────────────────────────────────
+              // -- Email --------------------------------
               const FieldLabel('Email'),
               const SizedBox(height: 8),
               InputField(
@@ -203,7 +203,7 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
               const SizedBox(height: 20),
 
-              // ── Password ─────────────────────────────
+              // -- Password -----------------------------
               const FieldLabel('Password'),
               const SizedBox(height: 8),
               InputField(
@@ -220,7 +220,7 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
               const SizedBox(height: 20),
 
-              // ── Confirm Password ──────────────────────
+              // -- Confirm Password ----------------------
               const FieldLabel('Confirm Password'),
               const SizedBox(height: 8),
               InputField(

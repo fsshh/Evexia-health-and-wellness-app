@@ -80,7 +80,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
   // Notes
   final TextEditingController _notesController = TextEditingController();
 
-  // ─── Widgets ───────────────────────────────────────
+  // --- Widgets ---------------------------------------
 
   Widget _sectionHeader(String number, String title) {
     return Padding(
@@ -294,7 +294,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
 
-                    // ── Q1: Primary Goal ──────────────────
+                    // -- Q1: Primary Goal ------------------
                     _sectionHeader('1', 'What is your primary goal? (Select up to 2)'),
                     ..._primaryGoalOptions.map((opt) {
                       final selected = _selectedGoals.contains(opt);
@@ -315,7 +315,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
 
                     const SizedBox(height: 16),
 
-                    // ── Q2: Struggles ─────────────────────
+                    // -- Q2: Struggles ---------------------
                     _sectionHeader('2', 'What are your biggest struggles when managing your health/weight? (Select all that apply)'),
                     ..._struggleOptions.map((opt) => _checkboxTile(
                           label: opt,
@@ -329,7 +329,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
 
                     const SizedBox(height: 16),
 
-                    // ── Q3: Meal Planning ─────────────────
+                    // -- Q3: Meal Planning -----------------
                     _sectionHeader('3', 'How frequently do you plan your meals in advance?'),
                     ..._mealPlanOptions.map((opt) => _radioTile(
                           opt,
@@ -339,7 +339,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
 
                     const SizedBox(height: 16),
 
-                    // ── Q4: Activity Level ────────────────
+                    // -- Q4: Activity Level ----------------
                     _sectionHeader('4', 'How would you describe your typical daily activity level?'),
                     ..._activityOptions.map((opt) => _checkboxTile(
                           label: opt['label']!,
@@ -350,7 +350,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
 
                     const SizedBox(height: 16),
 
-                    // ── Q5: Sleep ─────────────────────────
+                    // -- Q5: Sleep -------------------------
                     _sectionHeader('5', 'How many hours of sleep do you get on an average night?'),
                     ..._sleepOptions.map((opt) => _radioTile(
                           opt,
@@ -360,7 +360,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
 
                     const SizedBox(height: 16),
 
-                    // ── Q6: Diet ──────────────────────────
+                    // -- Q6: Diet --------------------------
                     _sectionHeader('6', 'Do you follow any specific dietary patterns or have restrictions? (Select all that apply)'),
                     ..._dietOptions.map((opt) => _checkboxTile(
                           label: opt,
@@ -374,7 +374,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
 
                     const SizedBox(height: 16),
 
-                    // ── Notes ─────────────────────────────
+                    // -- Notes -----------------------------
                     const Text('Additional notes (optional)',
                         style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF454D6E))),
                     const SizedBox(height: 8),
@@ -401,7 +401,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
 
                     const SizedBox(height: 28),
 
-                    // ── Continue ──────────────────────────
+                    // -- Continue --------------------------
                     SizedBox(
                       width: double.infinity,
                       height: 54,

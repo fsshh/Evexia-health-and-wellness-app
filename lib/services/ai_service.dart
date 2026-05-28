@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 
 class AIService {
   static const String _model = 'gemini-2.5-flash';
-  static const String _apiKey = 'AIzaSyB1_ugM_-vFfEUP8_4DOj6EzbKQWrR0Bio';
+  static const String _apiKey = 'YOUR_API_KEY_HERE';
   static const int _maxRetries = 4;
   static const List<int> _retryDelaysSeconds = [5, 10, 20];
 

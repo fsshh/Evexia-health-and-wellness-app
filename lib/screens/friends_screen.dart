@@ -171,7 +171,7 @@ class _FriendsScreenState extends State<FriendsScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Header ───────────────────────────────────
+            // -- Header -----------------------------------
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
               child: Column(
@@ -185,7 +185,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                       style: TextStyle(fontSize: 13, color: Colors.grey[500])),
                   const SizedBox(height: 16),
 
-                  // ── Search bar ────────────────────────
+                  // -- Search bar ------------------------
                   Row(
                     children: [
                       Expanded(
@@ -250,7 +250,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                     ],
                   ),
 
-                  // ── Search result / error ─────────────
+                  // -- Search result / error -------------
                   if (_searchError != null) ...[
                     const SizedBox(height: 10),
                     Container(
@@ -288,7 +288,7 @@ class _FriendsScreenState extends State<FriendsScreen>
 
                   const SizedBox(height: 16),
 
-                  // ── Tabs ──────────────────────────────
+                  // -- Tabs ------------------------------
                   Container(
                     decoration: BoxDecoration(
                       color: isDark
@@ -352,12 +352,12 @@ class _FriendsScreenState extends State<FriendsScreen>
 
             const SizedBox(height: 12),
 
-            // ── Tab views ────────────────────────────────
+            // -- Tab views --------------------------------
             Expanded(
               child: TabBarView(
                 controller: _tabCtrl,
                 children: [
-                  // ── Tab 0: Friends list ───────────────
+                  // -- Tab 0: Friends list ---------------
                   _loadingFriends
                       ? const Center(child: CircularProgressIndicator())
                       : _friends.isEmpty
@@ -401,7 +401,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                               ),
                             ),
 
-                  // ── Tab 1: Pending requests ───────────
+                  // -- Tab 1: Pending requests -----------
                   _loadingRequests
                       ? const Center(child: CircularProgressIndicator())
                       : _pendingRequests.isEmpty
@@ -466,7 +466,7 @@ class _FriendsScreenState extends State<FriendsScreen>
   }
 }
 
-// ── Search result card ─────────────────────────────────────
+// -- Search result card -------------------------------------
 class _SearchResultCard extends StatelessWidget {
   final Map<String, dynamic> user;
   final bool alreadyFriend;
@@ -600,7 +600,7 @@ class _SearchResultCard extends StatelessWidget {
   }
 }
 
-// ── Incoming request tile ──────────────────────────────────
+// -- Incoming request tile ----------------------------------
 class _RequestTile extends StatelessWidget {
   final Map<String, dynamic> request;
   final VoidCallback onAccept;
@@ -690,7 +690,7 @@ class _RequestTile extends StatelessWidget {
   }
 }
 
-// ── Friend tile ────────────────────────────────────────────
+// -- Friend tile --------------------------------------------
 class _FriendTile extends StatelessWidget {
   final Map<String, dynamic> friend;
   final VoidCallback onRemove;
@@ -784,7 +784,7 @@ class _FriendTile extends StatelessWidget {
   }
 }
 
-// ── Shared avatar widget ───────────────────────────────────
+// -- Shared avatar widget -----------------------------------
 class _Avatar extends StatelessWidget {
   final String name;
   final double size;

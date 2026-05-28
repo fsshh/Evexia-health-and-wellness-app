@@ -58,7 +58,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
-  // ── EXP helpers ─────────────────────────────────────────
+  // -- EXP helpers -----------------------------------------
   int _expForLevel(int level) => level * 500;
 
   int _totalExpForLevel(int level) {
@@ -131,7 +131,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             children: [
 
-              // ── Hero header ──────────────────────────────
+              // -- Hero header ------------------------------
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
@@ -198,7 +198,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
 
-              // ── Stats row ────────────────────────────────
+              // -- Stats row --------------------------------
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: Row(
@@ -217,7 +217,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
 
-              // ── Account info ─────────────────────────────
+              // -- Account info -----------------------------
               _Section(
                 title: 'Account',
                 children: [
@@ -243,7 +243,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               const SizedBox(height: 8),
 
-              // ── Progress info ────────────────────────────
+              // -- Progress info ----------------------------
               _Section(
                 title: 'Progress',
                 children: [
@@ -273,7 +273,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               const SizedBox(height: 8),
 
-              // ── Actions ──────────────────────────────────
+              // -- Actions ----------------------------------
               _Section(
                 title: 'Account Actions',
                 children: [
@@ -295,7 +295,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               const SizedBox(height: 32),
 
-              // ── Hidden dev footer (5-tap to unlock) ──────
+              // -- Hidden dev footer (5-tap to unlock) ------
               if (widget.onDevResetWeek != null)
                 GestureDetector(
                   onTap: () {
@@ -382,7 +382,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Divider(color: Colors.white.withValues(alpha: 0.08)),
                 const SizedBox(height: 16),
 
-                // ── Set Level ────────────────────────────────
+                // -- Set Level --------------------------------
                 if (widget.onDevSetLevel != null) ...[
                   Row(
                     children: [
@@ -474,7 +474,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 16),
                 ],
 
-                // ── Reset Week ───────────────────────────────
+                // -- Reset Week -------------------------------
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Container(
@@ -530,7 +530,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-// ── Dev stepper button ─────────────────────────────────────
+// -- Dev stepper button -------------------------------------
 class _DevStepBtn extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
@@ -552,7 +552,7 @@ class _DevStepBtn extends StatelessWidget {
   }
 }
 
-// ── Stat card ──────────────────────────────────────────────
+// -- Stat card ----------------------------------------------
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
@@ -596,7 +596,7 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-// ── Section wrapper ────────────────────────────────────────
+// -- Section wrapper ----------------------------------------
 class _Section extends StatelessWidget {
   final String title;
   final List<Widget> children;
@@ -644,7 +644,7 @@ class _Section extends StatelessWidget {
   }
 }
 
-// ── Info tile ──────────────────────────────────────────────
+// -- Info tile ----------------------------------------------
 class _InfoTile extends StatelessWidget {
   final IconData icon;
   final String label;

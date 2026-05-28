@@ -59,7 +59,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Header ─────────────────────────────────
+            // -- Header ---------------------------------
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
               child: Column(
@@ -74,13 +74,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               ),
             ),
 
-            // ── Top 3 podium ────────────────────────────
+            // -- Top 3 podium ----------------------------
             if (!_loading && _entries.length >= 3)
               _Podium(entries: _entries.take(3).toList(), currentUid: currentUid, isDark: isDark),
 
             const SizedBox(height: 16),
 
-            // ── Full ranked list ─────────────────────────
+            // -- Full ranked list -------------------------
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
@@ -131,7 +131,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   }
 }
 
-// ── Podium (top 3) ─────────────────────────────────────────
+// -- Podium (top 3) -----------------------------------------
 class _Podium extends StatelessWidget {
   final List<Map<String, dynamic>> entries;
   final String? currentUid;
@@ -221,7 +221,7 @@ class _Podium extends StatelessWidget {
   }
 }
 
-// ── Single leaderboard tile ────────────────────────────────
+// -- Single leaderboard tile --------------------------------
 class _LeaderboardTile extends StatelessWidget {
   final int rank;
   final String name;

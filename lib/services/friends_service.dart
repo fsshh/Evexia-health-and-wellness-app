@@ -1,9 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 // *** Contributions in the file: Dexter Logdonio, Raign Vincent Rueda ***
-// ─────────────────────────────────────────────────────────
+// ----------------------------------------------
 // Firestore schema for friends
-// ─────────────────────────────────────────────────────────
+// ----------------------------------------------
 // users/{uid}/friends/{friendUid}
 //   addedAt: timestamp
 //
@@ -16,7 +16,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 //
 // users/{uid}
 //   displayName, username, email, totalExp, weekNumber
-// ─────────────────────────────────────────────────────────
+// ----------------------------------------------
 
 class FriendsService {
   static final _db = FirebaseFirestore.instance;
@@ -39,8 +39,7 @@ class FriendsService {
     return {'uid': uid, ...userDoc.data()!};
   }
 
-  // ── Friend Requests ───────────────────────────────────
-
+  // -----------------------Friend Requests-----------------------
   /// Send a friend request
   static Future<void> sendFriendRequest({
     required String uid,
@@ -149,8 +148,7 @@ static Future<List<Map<String, dynamic>>> getPendingRequests(String uid) async {
     return doc.exists && doc.data()?['status'] == 'pending';
   }
 
-  // ── Friends ───────────────────────────────────────────
-
+  //------------------------Friends------------------------
   /// Remove a friend (both users).
   static Future<void> removeFriend(String uid, String friendUid) async {
     final batch = _db.batch();

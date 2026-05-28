@@ -5,7 +5,7 @@ import 'login_screen.dart';
 
 // *** Contributions in the file: Acier Jan Andres, Andrei Deseo ***
 
-// ── Design System ──────────────────────────────────────────
+// -- Design System ------------------------------------------
 class _C {
   static const navyDark  = Color(0xFF2E3450);
   static const cream     = Color(0xFFF1EFEE);
